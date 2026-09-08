@@ -10,7 +10,7 @@ import DailyHabits from '@/components/index_components/daily-habits';
 import { TaskItemData } from '@/components/index_components/task-item';
 import { HabitData } from '@/components/index_components/habit-card';
 import { fetchPendingTaskQueue, completeTask } from '@/dp_operations/home/tasks';
-import { fetchTodayHabits, completeHabit } from '@/lib/habits';
+import { fetchTodayHabits, logHabitCompletion } from '@/dp_operations/home/habits';
 
 export default function HomeScreen() {
 	const [fontsLoaded] = useFonts({
@@ -117,7 +117,8 @@ export default function HomeScreen() {
 
 	const handleToggleHabit = (habit: HabitData) => {
 		// Persist completion through the `habit_logs` table (database-backed).
-		completeHabit(habit.id)
+		// Only update the frontend once the write succeeds.
+		logHabitCompletion(habit.id)
 			.then(() => {
 				// Remove it from the Daily Habits list once logged successfully.
 				setHabits((prev) => prev.filter((h) => h.id !== habit.id));

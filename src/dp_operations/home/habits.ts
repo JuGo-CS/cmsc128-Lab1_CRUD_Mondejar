@@ -1,4 +1,4 @@
-import { supabase } from './supabase';
+import { supabase } from '../../lib/supabase';
 import { HabitData } from '@/components/index_components/habit-card';
 
 /**
@@ -25,6 +25,11 @@ function todayDateString(): string {
     return `${year}-${month}-${day}`;
 }
 
+/** Current time as `HH:MM:SS` in local time, matching `habit_logs.completed_time`. */
+function nowTimeString(): string {
+    return new Date().toTimeString().slice(0, 8);
+}
+
 /** Convert a raw habits row into the `HabitData` shape the UI expects. */
 function toHabitData(row: HabitRow): HabitData {
     return {
@@ -40,7 +45,8 @@ function toHabitData(row: HabitRow): HabitData {
  *
  * Habits already logged in `habit_logs` for today are excluded so they drop out
  * of the carousel (matching the existing "remove when done" behavior). Completion
- * is tracked through `habit_logs`, not a boolean on the habit row.
+ * is tracked through `habit_logs`, not a boolean on the habit row. This makes
+ * completion persistent — reopening the app reflects the database state.
  */
 export async function fetchTodayHabits(): Promise<HabitData[]> {
     const today = todayDateString();
@@ -71,17 +77,16 @@ export async function fetchTodayHabits(): Promise<HabitData[]> {
 
 /**
  * Mark a habit as completed for today by inserting a row into `habit_logs`.
- * This keeps completion history in the database via the logs table.
+ *
+ * Saves the `habit_id`, `completed_date`, and `completed_time`. This keeps
+ * completion history in the database via the logs table, so completion is
+ * persistent across app reloads.
  */
-export async function completeHabit(habitId: string): Promise<void> {
-    const today = todayDateString();
-    const now = new Date();
-    const time = now.toTimeString().slice(0, 8); // HH:MM:SS
-
+export async function logHabitCompletion(habitId: string): Promise<void> {
     const { error } = await supabase.from('habit_logs').insert({
         habit_id: habitId,
-        completed_date: today,
-        completed_time: time,
+        completed_date: todayDateString(),
+        completed_time: nowTimeString(),
     });
 
     if (error) {
