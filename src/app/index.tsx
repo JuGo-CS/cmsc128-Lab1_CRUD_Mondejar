@@ -10,14 +10,7 @@ import DailyHabits from '@/components/index_components/daily-habits';
 import { TaskItemData } from '@/components/index_components/task-item';
 import { HabitData } from '@/components/index_components/habit-card';
 import { fetchPendingTaskQueue } from '@/lib/tasks';
-
-// Placeholder/static daily habits. Replace with a database fetch later.
-const INITIAL_HABITS: HabitData[] = [
-    { id: 'habit-1', title: 'Read a book', emoji: '🧘' },
-    { id: 'habit-2', title: 'Drink water', emoji: '💧' },
-    { id: 'habit-3', title: 'Take a walk', emoji: '🚶' },
-    { id: 'habit-4', title: 'Stretch', emoji: '🧎' },
-];
+import { fetchTodayHabits, completeHabit } from '@/lib/habits';
 
 export default function HomeScreen() {
 	const [fontsLoaded] = useFonts({
@@ -32,8 +25,9 @@ export default function HomeScreen() {
 	const [taskQueue, setTaskQueue] = useState<TaskItemData[]>([]);
 	const [tasksLoading, setTasksLoading] = useState(true);
 
-	// Daily habits — static for now, wired to the database later.
-	const [habits, setHabits] = useState<HabitData[]>(INITIAL_HABITS);
+	// Daily habits — loaded from the Supabase `habits` table (not yet completed today).
+	const [habits, setHabits] = useState<HabitData[]>([]);
+	const [habitsLoading, setHabitsLoading] = useState(true);
 
 	// Whether the "Other tasks" queue is expanded. Controls scrollability below.
 	const [otherTasksExpanded, setOtherTasksExpanded] = useState(false);
@@ -57,6 +51,26 @@ export default function HomeScreen() {
 			})
 			.finally(() => {
 				if (active) setTasksLoading(false);
+			});
+
+		return () => {
+			active = false;
+		};
+	}, []);
+
+	// Load today's habits from Supabase on mount.
+	useEffect(() => {
+		let active = true;
+
+		fetchTodayHabits()
+			.then((habitsData) => {
+				if (active) setHabits(habitsData);
+			})
+			.catch((err) => {
+				console.error('Failed to load habits:', err);
+			})
+			.finally(() => {
+				if (active) setHabitsLoading(false);
 			});
 
 		return () => {
@@ -89,10 +103,15 @@ export default function HomeScreen() {
 	};
 
 	const handleToggleHabit = (habit: HabitData) => {
-		// TODO: connect to database to mark the habit as completed
-		console.log('Habit completed:', habit.id);
-		// Mark as completed and remove it from the Daily Habits list.
-		setHabits((prev) => prev.filter((h) => h.id !== habit.id));
+		// Persist completion through the `habit_logs` table (database-backed).
+		completeHabit(habit.id)
+			.then(() => {
+				// Remove it from the Daily Habits list once logged successfully.
+				setHabits((prev) => prev.filter((h) => h.id !== habit.id));
+			})
+			.catch((err) => {
+				console.error('Failed to complete habit:', err);
+			});
 	};
 
 	return (
@@ -158,10 +177,12 @@ export default function HomeScreen() {
 				)}
 
 				{/* Daily habits — horizontal carousel */}
-				<DailyHabits
-					habits={habits}
-					onToggleHabit={handleToggleHabit}
-				/>
+				{!habitsLoading && (
+					<DailyHabits
+						habits={habits}
+						onToggleHabit={handleToggleHabit}
+					/>
+				)}
 			</ScrollView>
 		</View>
 	);
