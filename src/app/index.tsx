@@ -9,7 +9,7 @@ import OtherTasks, { OtherTasksHeader } from '@/components/index_components/othe
 import DailyHabits from '@/components/index_components/daily-habits';
 import { TaskItemData } from '@/components/index_components/task-item';
 import { HabitData } from '@/components/index_components/habit-card';
-import { fetchPendingTaskQueue } from '@/lib/tasks';
+import { fetchPendingTaskQueue, completeTask } from '@/dp_operations/home/tasks';
 import { fetchTodayHabits, completeHabit } from '@/lib/habits';
 
 export default function HomeScreen() {
@@ -89,17 +89,30 @@ export default function HomeScreen() {
 
 	// Completing the Hero Task promotes the next task in line.
 	const handleHeroComplete = (task: TaskItemData) => {
-		// TODO: connect to database to mark the task as done + promote next task
-		console.log('Hero task completed:', task.id);
-		setTaskQueue((prev) => prev.filter((t) => t.id !== task.id));
+		// Persist completion to the database first. Only update the frontend
+		// once the write succeeds, so the UI never shows it as done on failure.
+		completeTask(task.id)
+			.then(() => {
+				// Remove the completed task; the next pending task becomes the Hero.
+				setTaskQueue((prev) => prev.filter((t) => t.id !== task.id));
+			})
+			.catch((err) => {
+				console.error('Failed to complete hero task:', err);
+			});
 	};
 
 	const handleToggleTask = (task: TaskItemData) => {
-		// TODO: connect to database to mark the task as completed
-		console.log('Task completed:', task.id);
-		// Mark as completed and remove it from the Other Tasks queue,
-		// preserving the order of the remaining tasks.
-		setTaskQueue((prev) => prev.filter((t) => t.id !== task.id));
+		// Persist completion to the database first. Only update the frontend
+		// once the write succeeds, so the UI never shows it as done on failure.
+		completeTask(task.id)
+			.then(() => {
+				// Remove it from the Other Tasks queue, preserving the order of
+				// the remaining tasks.
+				setTaskQueue((prev) => prev.filter((t) => t.id !== task.id));
+			})
+			.catch((err) => {
+				console.error('Failed to complete task:', err);
+			});
 	};
 
 	const handleToggleHabit = (habit: HabitData) => {
