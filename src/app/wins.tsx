@@ -7,6 +7,7 @@ import WinsTabs, { WinsTab } from '@/components/wins_components/wins-tabs';
 import TreasureDateSection from '@/components/wins_components/treasure-date-section';
 import WinsCalendarModal from '@/components/wins_components/wins-calendar-modal';
 import EditTreasureModal from '@/components/wins_components/edit-treasure-modal';
+import DeleteTreasureModal from '@/components/wins_components/delete-treasure-modal';
 import { fetchTreasureGroups, TreasureGroup, TreasureLog, deleteTreasure, fetchCategories, updateTreasure, Category } from '@/dp_operations/wins/treasures';
 
 // Placeholder treasure groups used when the database fetch hasn't loaded yet.
@@ -59,6 +60,11 @@ export default function WinsScreen() {
     const [editModalVisible, setEditModalVisible] = useState(false);
     const [categories, setCategories] = useState<Category[]>([]);
     const [saving, setSaving] = useState(false);
+
+    // Delete confirmation modal state.
+    const [deletingLog, setDeletingLog] = useState<TreasureLog | null>(null);
+    const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+    const [deleting, setDeleting] = useState(false);
 
     // Ref to the scrollable logbook + a map of each date group's y-offset.
     const scrollRef = useRef<ScrollView>(null);
@@ -135,10 +141,18 @@ export default function WinsScreen() {
             });
     };
 
-    // Handle deleting a treasure from the database, then update local state.
+    // Handle tapping Delete — open the confirmation dialog (does not delete yet).
     const handleDeleteLog = (log: TreasureLog) => {
+        setDeletingLog(log);
+        setDeleteModalVisible(true);
+    };
+
+    // Handle confirming the permanent deletion. Only deletes after confirmation.
+    const handleConfirmDelete = (log: TreasureLog) => {
+        setDeleting(true);
         deleteTreasure(log.id)
             .then(() => {
+                // Remove the task from the Treasures UI immediately.
                 setGroups((prev) =>
                     prev
                         .map((group) => ({
@@ -147,9 +161,15 @@ export default function WinsScreen() {
                         }))
                         .filter((group) => group.logs.length > 0)
                 );
+                setDeleteModalVisible(false);
+                setDeletingLog(null);
             })
             .catch((err) => {
+                // Keep the task visible on failure; the user can retry.
                 console.error('Failed to delete treasure:', err);
+            })
+            .finally(() => {
+                setDeleting(false);
             });
     };
 
@@ -255,6 +275,18 @@ export default function WinsScreen() {
                 }}
                 onConfirm={handleConfirmEdit}
                 saving={saving}
+            />
+
+            {/* Delete confirmation modal */}
+            <DeleteTreasureModal
+                visible={deleteModalVisible}
+                log={deletingLog}
+                onClose={() => {
+                    setDeleteModalVisible(false);
+                    setDeletingLog(null);
+                }}
+                onConfirmDelete={handleConfirmDelete}
+                deleting={deleting}
             />
         </View>
     );

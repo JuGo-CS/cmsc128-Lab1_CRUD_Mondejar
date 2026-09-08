@@ -49,8 +49,17 @@ export default function WinsCalendarModal({
 
     return (
         <Modal visible={visible} transparent animationType="slide">
-            <View className="flex-1 justify-end bg-black/30">
-                <View className="bg-cozyBg rounded-t-3xl p-5 pb-8">
+            <View className="flex-1 justify-end bg-black/60">
+                <View
+                    className="bg-cozyBg rounded-t-3xl p-5 pb-8"
+                    style={{
+                        shadowColor: '#000',
+                        shadowOffset: { width: 0, height: -4 },
+                        shadowOpacity: 0.2,
+                        shadowRadius: 12,
+                        elevation: 16,
+                    }}
+                >
                     {/* Header */}
                     <View className="flex-row items-center justify-between mb-4">
                         <Text className="text-xl font-fredoka-bold text-deepBrown">

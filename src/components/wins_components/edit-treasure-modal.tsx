@@ -94,8 +94,17 @@ export default function EditTreasureModal({
                 behavior={Platform.OS === 'ios' ? 'padding' : undefined}
                 className="flex-1 justify-end"
             >
-                <View className="flex-1 justify-end bg-black/30">
-                    <View className="bg-cozyBg rounded-t-3xl p-5 pb-8 max-h-[85%]">
+                <View className="flex-1 justify-end bg-black/60">
+                    <View
+                        className="bg-cozyBg rounded-t-3xl p-5 pb-8 max-h-[85%]"
+                        style={{
+                            shadowColor: '#000',
+                            shadowOffset: { width: 0, height: -4 },
+                            shadowOpacity: 0.2,
+                            shadowRadius: 12,
+                            elevation: 16,
+                        }}
+                    >
                         {/* Header */}
                         <View className="flex-row items-center justify-between mb-4">
                             <Text className="text-xl font-fredoka-bold text-deepBrown">
