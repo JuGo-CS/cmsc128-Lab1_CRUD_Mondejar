@@ -8,6 +8,28 @@ interface OtherTasksProps {
     onToggleTask?: (task: TaskItemData) => void;
 }
 
+// Fixed header for the "Other tasks" section (title + edit button).
+// Rendered outside the scrollable area so it stays pinned on screen.
+export function OtherTasksHeader() {
+    return (
+        <View className="flex-row items-center justify-between">
+            <Text className="text-xl font-fredoka text-deepBrown">
+                Other tasks:
+            </Text>
+            <TouchableOpacity
+                onPress={() => {
+                    // TODO: Later e connect na sa database edit flow
+                    console.log('Edit tasks');
+                }}
+                activeOpacity={0.7}
+                className="p-1"
+            >
+                <Ionicons name="create-outline" size={22} color="#7D6E6B" />
+            </TouchableOpacity>
+        </View>
+    );
+}
+
 // "Other tasks" section — shows a low-pressure stacked preview of a few tasks.
 // Tapping the stack or "See some tasks" expands the full queue; tapping again collapses.
 export default function OtherTasks({ tasks, onToggleTask }: OtherTasksProps) {
@@ -19,24 +41,7 @@ export default function OtherTasks({ tasks, onToggleTask }: OtherTasksProps) {
     const hasMore = tasks.length > PREVIEW_COUNT;
 
     return (
-        <View className="mt-8">
-            {/* Section header with edit button */}
-            <View className="flex-row items-center justify-between">
-                <Text className="text-xl font-fredoka text-deepBrown">
-                    Other tasks:
-                </Text>
-                <TouchableOpacity
-                    onPress={() => {
-                        // TODO: Later e connect na sa database edit flow
-                        console.log('Edit tasks');
-                    }}
-                    activeOpacity={0.7}
-                    className="p-1"
-                >
-                    <Ionicons name="create-outline" size={22} color="#7D6E6B" />
-                </TouchableOpacity>
-            </View>
-
+        <View className="mt-2">
             {/* Stacked task area — touchable to expand/collapse */}
             <TouchableOpacity
                 onPress={() => setExpanded((prev) => !prev)}

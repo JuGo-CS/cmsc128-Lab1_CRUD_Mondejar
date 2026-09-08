@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { View, Text } from 'react-native';
+import { View, Text, ScrollView } from 'react-native';
 import { useFonts, Fredoka_400Regular, Fredoka_500Medium, Fredoka_600SemiBold, Fredoka_700Bold } from '@expo-google-fonts/fredoka';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import HeroCard from '@/components/index_components/hero-card';
-import OtherTasks from '@/components/index_components/other-tasks';
+import OtherTasks, { OtherTasksHeader } from '@/components/index_components/other-tasks';
 import DailyHabits from '@/components/index_components/daily-habits';
 import { TaskItemData } from '@/components/index_components/task-item';
 import { HabitData } from '@/components/index_components/habit-card';
@@ -79,7 +79,7 @@ export default function HomeScreen() {
 
 	return (
 		<View className="flex-1 bg-cozyBg pt-14 px-5">
-			{/* Header row with greeting and sun icon */}
+			{/* Header row with greeting and sun icon — fixed */}
 			<View className="flex-row items-start justify-between">
 				<View className="flex-1 pr-4">
 					<Text className="text-4xl font-fredoka-semibold font-bold text-deepBrown leading-tight">
@@ -97,7 +97,7 @@ export default function HomeScreen() {
 				<Ionicons name="sunny" size={64} color="#F4C542" style={{ marginTop: -8 }} />
 			</View>
 
-			{/* Hero Card — highlights the single focus task */}
+			{/* Hero Card — highlights the single focus task (fixed) */}
 			{heroTask && (
 				<View className="mt-8">
 					<HeroCard
@@ -107,17 +107,29 @@ export default function HomeScreen() {
 				</View>
 			)}
 
-			{/* Other tasks — stacked queue preview with expand/collapse */}
-			<OtherTasks
-				tasks={otherTasks}
-				onToggleTask={handleToggleTask}
-			/>
+			{/* Other tasks title + edit button — fixed */}
+			<View className="mt-8">
+				<OtherTasksHeader />
+			</View>
 
-			{/* Daily habits — horizontal carousel */}
-			<DailyHabits
-				habits={habits}
-				onToggleHabit={handleToggleHabit}
-			/>
+			{/* Scrollable content below the Other Tasks header */}
+			<ScrollView
+				className="flex-1"
+				showsVerticalScrollIndicator={false}
+				contentContainerStyle={{ paddingBottom: 120 }}
+			>
+				{/* Other tasks — stacked queue preview with expand/collapse */}
+				<OtherTasks
+					tasks={otherTasks}
+					onToggleTask={handleToggleTask}
+				/>
+
+				{/* Daily habits — horizontal carousel */}
+				<DailyHabits
+					habits={habits}
+					onToggleHabit={handleToggleHabit}
+				/>
+			</ScrollView>
 		</View>
 	);
 }
