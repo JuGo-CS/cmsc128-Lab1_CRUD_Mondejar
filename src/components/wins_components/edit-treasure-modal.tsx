@@ -145,7 +145,7 @@ export default function EditTreasureModal({
                                         <Text className="text-sm font-fredoka-semibold text-mutedBrown">Category</Text>
                                         <Text className="text-sm font-fredoka-semibold text-deepBrown">
                                             {selectedCategory
-                                                ? `${selectedCategory.emoji} ${selectedCategory.title}`
+                                                ? `${selectedCategory.emoji} ${selectedCategory.cat_name}`
                                                 : 'None'}
                                         </Text>
                                     </View>
@@ -255,7 +255,7 @@ export default function EditTreasureModal({
                                                 >
                                                     <Text className="mr-1">{cat.emoji}</Text>
                                                     <Text className={`font-fredoka-semibold ${selected ? 'text-white' : 'text-deepBrown'}`}>
-                                                        {cat.title}
+                                                        {cat.cat_name}
                                                     </Text>
                                                 </TouchableOpacity>
                                             );

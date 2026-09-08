@@ -200,7 +200,7 @@ export async function deleteTreasure(taskId: string): Promise<void> {
 /** Raw shape of a row from the `categories` table. */
 interface CategoryRow {
     cat_id: string;
-    title: string;
+    cat_name: string;
     emoji_holder: string | null;
 }
 
@@ -211,8 +211,8 @@ interface CategoryRow {
 export async function fetchCategories(): Promise<Category[]> {
     const { data, error } = await supabase
         .from('categories')
-        .select('cat_id, title, emoji_holder')
-        .order('title', { ascending: true });
+        .select('cat_id, cat_name, emoji_holder')
+        .order('cat_name', { ascending: true });
 
     if (error) {
         console.error('Failed to fetch categories:', error.message);
@@ -222,7 +222,7 @@ export async function fetchCategories(): Promise<Category[]> {
     const rows = (data ?? []) as unknown as CategoryRow[];
     return rows.map((row) => ({
         cat_id: row.cat_id,
-        title: row.title,
+        cat_name: row.cat_name,
         emoji: row.emoji_holder ?? '✨',
     }));
 }
