@@ -61,7 +61,7 @@ export default function OtherTasks({ tasks, onToggleTask }: OtherTasksProps) {
                 ) : (
                     // Collapsed: show a clean stack — the first task (next in line) is the front card,
                     // with the rest of the queue peeking out behind/below it in order.
-                    <View className="relative pb-8">
+                    <View className="relative" style={{ paddingBottom: (visibleTasks.length - 1) * 12 }}>
                         {/* Front card — the task at the top of the queue (next in line) */}
                         <View
                             className="relative z-10 bg-taskStack rounded-2xl px-4 border border-white/50"
@@ -85,7 +85,7 @@ export default function OtherTasks({ tasks, onToggleTask }: OtherTasksProps) {
                                 key={task.id}
                                 className="absolute left-0 right-0 bg-taskStack rounded-2xl px-4 border border-white/50"
                                 style={{
-                                    top: 14 + index * 13,
+                                    top: (index + 1) * 12,
                                     zIndex: index,
                                     opacity: 0.70,
                                 }}
@@ -101,7 +101,7 @@ export default function OtherTasks({ tasks, onToggleTask }: OtherTasksProps) {
             <TouchableOpacity
                 onPress={() => setExpanded((prev) => !prev)}
                 activeOpacity={0.7}
-                className="flex-row items-center justify-end"
+                className="flex-row items-center justify-end mt-3"
             >
                 <Text className="text-lg font-fredoka-semibold text-deepBrown underline">
                     {expanded ? 'See fewer tasks' : 'See some tasks'}

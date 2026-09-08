@@ -66,8 +66,11 @@ export default function HomeScreen() {
 	};
 
 	const handleToggleTask = (task: TaskItemData) => {
-		// TODO: connect to database to toggle task completion
-		console.log('Toggle task:', task.id);
+		// TODO: connect to database to mark the task as completed
+		console.log('Task completed:', task.id);
+		// Mark as completed and remove it from the Other Tasks queue,
+		// preserving the order of the remaining tasks.
+		setTaskQueue((prev) => prev.filter((t) => t.id !== task.id));
 	};
 
 	const handleToggleHabit = (habit: HabitData) => {
