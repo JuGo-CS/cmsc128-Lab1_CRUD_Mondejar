@@ -8,7 +8,10 @@ module.exports = {
     theme: {
         extend: {
             fontFamily: {
-                fredoka: ['Fredoka', 'Quicksand', 'Varela Round', 'sans-serif'],
+                fredoka: ['Fredoka_400Regular', 'sans-serif'],
+                'fredoka-medium': ['Fredoka_500Medium', 'sans-serif'],
+                'fredoka-semibold': ['Fredoka_600SemiBold', 'sans-serif'],
+                'fredoka-bold': ['Fredoka_700Bold', 'sans-serif'],
             },
             colors: {
                 // Core Palette & Backgrounds

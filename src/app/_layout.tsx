@@ -2,6 +2,9 @@ import "../../global.css";
 import { Tabs } from 'expo-router';
 import { View, TouchableOpacity, Text, Platform } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { useFonts, Fredoka_400Regular, Fredoka_500Medium, Fredoka_600SemiBold, Fredoka_700Bold } from '@expo-google-fonts/fredoka';
+import * as SplashScreen from 'expo-splash-screen';
+import { useEffect } from 'react';
 
 function FloatingAddButton({ onPress }: { onPress?: () => void }) {
     return (
@@ -26,13 +29,31 @@ function FloatingAddButton({ onPress }: { onPress?: () => void }) {
 
 function TabLabel({ label, focused }: { label: string; focused: boolean }) {
     return (
-        <Text className={`text-deepBrown text-[13px] mt-0.5 ${focused ? 'font-black' : 'font-normal'}`}>
+        <Text className={`${focused ? 'font-fredoka-semibold' : 'font-fredoka'} text-deepBrown text-[15px] mt-0.5`}>
             {label}
         </Text>
     );
 }
 
 export default function AppLayout() {
+	const [fontsLoaded] = useFonts({
+        Fredoka_400Regular,
+        Fredoka_500Medium,
+        Fredoka_600SemiBold,
+        Fredoka_700Bold,
+    });
+
+    useEffect(() => {
+        if (fontsLoaded) {
+            SplashScreen.hideAsync();
+        }
+    }, [fontsLoaded]);
+
+    if (!fontsLoaded) {
+        return null;
+    }
+
+
     return (
         <View className="flex-1 mx-1">
             <Tabs
