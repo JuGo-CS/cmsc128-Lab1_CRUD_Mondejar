@@ -12,6 +12,7 @@ const PRIORITY_STYLES: Record<CalendarTask['priority'], { bg: string; label: str
 
 // The bottom-bar background color when sorting by category (light blue).
 const CATEGORY_BADGE_BG = '#D4E5F7';
+const CREATEDAT_BADGE_BG = '#E1D5E7'
 
 interface CalendarTaskCardProps {
     task: CalendarTask;
@@ -66,6 +67,8 @@ function bgForCriteria(task: CalendarTask, criteria: SortCriteria): string {
             return PRIORITY_STYLES[task.priority].bg;
         case 'category':
             return CATEGORY_BADGE_BG;
+        case 'createdAt':
+            return CREATEDAT_BADGE_BG;
         default:
             return PRIORITY_STYLES[task.priority].bg;
     }
