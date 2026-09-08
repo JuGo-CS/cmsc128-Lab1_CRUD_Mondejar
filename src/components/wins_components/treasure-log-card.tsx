@@ -31,7 +31,7 @@ export default function TreasureLogCard({ log, onEdit, onDelete }: TreasureLogCa
             <TouchableOpacity
                 onPress={() => setShowActions((prev) => !prev)}
                 activeOpacity={0.8}
-                className="flex-row items-center bg-cardBg rounded-2xl px-4 py-3 border border-white/50"
+                className="flex-row items-center bg-cardBg rounded-2xl px-4 py-3 border border-black"
             >
                 {/* Task icon */}
                 <View className="bg-taskStack/40 rounded-lg p-2 mr-3">

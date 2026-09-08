@@ -8,6 +8,8 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 export interface TreasureLog {
     id: string;
     title: string;
+    description: string | null;
+    catId: string | null;
     iconName: keyof typeof Ionicons.glyphMap;
     /** Completion date as `YYYY-MM-DD` (matches `tasks.completed_date`). */
     completedDate: string;
@@ -27,6 +29,26 @@ export interface TreasureGroup {
 }
 
 /**
+ * A task category, used by the edit form to pick a new category.
+ */
+export interface Category {
+    cat_id: string;
+    title: string;
+    emoji: string;
+}
+
+/**
+ * The editable fields of a completed task ("Treasure").
+ * Used by the edit form and the update operation.
+ */
+export interface TreasureEditPayload {
+    status: 'completed' | 'pending';
+    title: string;
+    description: string | null;
+    cat_id: string | null;
+}
+
+/**
  * Raw shape of a row from the `tasks` table (joined with its category).
  * Column names match the Supabase schema exactly — we do not modify the schema.
  */
@@ -34,6 +56,7 @@ interface CompletedTaskRow {
     task_id: string;
     cat_id: string | null;
     title: string;
+    description: string | null;
     completed_date: string | null;
     completed_time: string | null;
     created_at: string;
@@ -87,6 +110,8 @@ function toTreasureLog(row: CompletedTaskRow): TreasureLog {
     return {
         id: row.task_id,
         title: row.title,
+        description: row.description,
+        catId: row.cat_id,
         iconName: iconForEmoji(row.categories?.emoji_holder),
         completedDate: row.completed_date ?? '',
         completedTime: row.completed_time ?? '',
@@ -168,6 +193,77 @@ export async function deleteTreasure(taskId: string): Promise<void> {
 
     if (error) {
         console.error('Failed to delete treasure:', error.message);
+        throw error;
+    }
+}
+
+/** Raw shape of a row from the `categories` table. */
+interface CategoryRow {
+    cat_id: string;
+    title: string;
+    emoji_holder: string | null;
+}
+
+/**
+ * Fetch all available task categories for the edit form.
+ * The user can pick a new category when editing a completed task.
+ */
+export async function fetchCategories(): Promise<Category[]> {
+    const { data, error } = await supabase
+        .from('categories')
+        .select('cat_id, title, emoji_holder')
+        .order('title', { ascending: true });
+
+    if (error) {
+        console.error('Failed to fetch categories:', error.message);
+        throw error;
+    }
+
+    const rows = (data ?? []) as unknown as CategoryRow[];
+    return rows.map((row) => ({
+        cat_id: row.cat_id,
+        title: row.title,
+        emoji: row.emoji_holder ?? '✨',
+    }));
+}
+
+/**
+ * Update a completed task ("Treasure") with the edited fields.
+ *
+ * When the status is changed back to `pending`, the task is returned to the
+ * active task queue: its completion date/time are cleared and its focus flag is
+ * unset so it rejoins the queue as a normal pending task (the existing queue
+ * logic in `fetchPendingTaskQueue` will order it appropriately).
+ */
+export async function updateTreasure(
+    taskId: string,
+    payload: TreasureEditPayload
+): Promise<void> {
+    const update: Record<string, unknown> = {
+        title: payload.title,
+        description: payload.description,
+        cat_id: payload.cat_id,
+    };
+
+    if (payload.status === 'pending') {
+        // Revert to pending: clear completion metadata and unset focus so the
+        // task rejoins the queue as a non-focus pending task.
+        update.status = 'pending';
+        update.completed_date = null;
+        update.completed_time = null;
+        update.is_focus = false;
+    } else {
+        // Keep completed but reflect any edited fields.
+        update.status = 'completed';
+    }
+
+    const { error } = await supabase
+        .from('tasks')
+        .update(update)
+        .eq('task_id', taskId);
+
+    if (error) {
+        console.error('Failed to update treasure:', error.message);
         throw error;
     }
 }

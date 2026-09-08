@@ -6,7 +6,8 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import WinsTabs, { WinsTab } from '@/components/wins_components/wins-tabs';
 import TreasureDateSection from '@/components/wins_components/treasure-date-section';
 import WinsCalendarModal from '@/components/wins_components/wins-calendar-modal';
-import { fetchTreasureGroups, TreasureGroup, TreasureLog, deleteTreasure } from '@/dp_operations/wins/treasures';
+import EditTreasureModal from '@/components/wins_components/edit-treasure-modal';
+import { fetchTreasureGroups, TreasureGroup, TreasureLog, deleteTreasure, fetchCategories, updateTreasure, Category } from '@/dp_operations/wins/treasures';
 
 // Placeholder treasure groups used when the database fetch hasn't loaded yet.
 // Replace with real data once the backend is fully wired.
@@ -15,17 +16,17 @@ const PLACEHOLDER_GROUPS: TreasureGroup[] = [
         date: '2026-09-09',
         label: 'September 9, 2026',
         logs: [
-            { id: 't-1', title: 'Finish wireframes for Unti-Unti', iconName: 'school', completedDate: '2026-09-09', completedTime: '14:30:00' },
-            { id: 't-2', title: 'Finish wireframes for Unti-Unti', iconName: 'school', completedDate: '2026-09-09', completedTime: '14:30:00' },
-            { id: 't-3', title: 'Finish wireframes for Unti-Unti', iconName: 'school', completedDate: '2026-09-09', completedTime: '14:30:00' },
+            { id: 't-1', title: 'Finish wireframes for Unti-Unti', description: null, catId: null, iconName: 'school', completedDate: '2026-09-09', completedTime: '14:30:00' },
+            { id: 't-2', title: 'Finish wireframes for Unti-Unti', description: null, catId: null, iconName: 'school', completedDate: '2026-09-09', completedTime: '14:30:00' },
+            { id: 't-3', title: 'Finish wireframes for Unti-Unti', description: null, catId: null, iconName: 'school', completedDate: '2026-09-09', completedTime: '14:30:00' },
         ],
     },
     {
         date: '2026-09-08',
         label: 'September 8, 2026',
         logs: [
-            { id: 't-4', title: 'Finish wireframes for Unti-Unti', iconName: 'school', completedDate: '2026-09-08', completedTime: '14:30:00' },
-            { id: 't-5', title: 'Finish wireframes for Unti-Unti', iconName: 'school', completedDate: '2026-09-08', completedTime: '14:30:00' },
+            { id: 't-4', title: 'Finish wireframes for Unti-Unti', description: null, catId: null, iconName: 'school', completedDate: '2026-09-08', completedTime: '14:30:00' },
+            { id: 't-5', title: 'Finish wireframes for Unti-Unti', description: null, catId: null, iconName: 'school', completedDate: '2026-09-08', completedTime: '14:30:00' },
         ],
     },
 ];
@@ -53,6 +54,12 @@ export default function WinsScreen() {
     const [calendarVisible, setCalendarVisible] = useState(false);
     const [selectedDate, setSelectedDate] = useState<string>(todayDateString());
 
+    // Edit modal state.
+    const [editingLog, setEditingLog] = useState<TreasureLog | null>(null);
+    const [editModalVisible, setEditModalVisible] = useState(false);
+    const [categories, setCategories] = useState<Category[]>([]);
+    const [saving, setSaving] = useState(false);
+
     // Ref to the scrollable logbook + a map of each date group's y-offset.
     const scrollRef = useRef<ScrollView>(null);
     const dateOffsets = useRef<Record<string, number>>({});
@@ -63,7 +70,7 @@ export default function WinsScreen() {
         }
     }, [fontsLoaded]);
 
-    // Fetch the completed task logs (Treasures) from the database.
+    // Fetch the completed task logs (Treasures) + categories from the database.
     useEffect(() => {
         let isMounted = true;
         fetchTreasureGroups()
@@ -80,6 +87,17 @@ export default function WinsScreen() {
                     setLoading(false);
                 }
             });
+
+        fetchCategories()
+            .then((data) => {
+                if (isMounted) {
+                    setCategories(data);
+                }
+            })
+            .catch((err) => {
+                console.error('Failed to load categories:', err);
+            });
+
         return () => {
             isMounted = false;
         };
@@ -87,8 +105,34 @@ export default function WinsScreen() {
 
     // Handle editing a treasure's title.
     const handleEditLog = (log: TreasureLog) => {
-        // TODO: replace with a text-input prompt/modal for editing the title.
-        console.log('Edit treasure:', log.id);
+        setEditingLog(log);
+        setEditModalVisible(true);
+    };
+
+    // Handle confirming the edited treasure, then refresh the logbook.
+    const handleConfirmEdit = (payload: {
+        status: 'completed' | 'pending';
+        title: string;
+        description: string | null;
+        cat_id: string | null;
+    }) => {
+        if (!editingLog) return;
+        setSaving(true);
+        updateTreasure(editingLog.id, payload)
+            .then(() => {
+                setEditModalVisible(false);
+                setEditingLog(null);
+                // Refresh the logbook so changes are immediately reflected.
+                return fetchTreasureGroups().then((data) => {
+                    setGroups(data);
+                });
+            })
+            .catch((err) => {
+                console.error('Failed to update treasure:', err);
+            })
+            .finally(() => {
+                setSaving(false);
+            });
     };
 
     // Handle deleting a treasure from the database, then update local state.
@@ -198,6 +242,19 @@ export default function WinsScreen() {
                 onClose={() => setCalendarVisible(false)}
                 onSelectDate={handleSelectDate}
                 selectedDate={selectedDate}
+            />
+
+            {/* Edit treasure modal */}
+            <EditTreasureModal
+                visible={editModalVisible}
+                log={editingLog}
+                categories={categories}
+                onClose={() => {
+                    setEditModalVisible(false);
+                    setEditingLog(null);
+                }}
+                onConfirm={handleConfirmEdit}
+                saving={saving}
             />
         </View>
     );

@@ -21,9 +21,9 @@ export default function TreasureDateSection({ group, onEditLog, onDeleteLog }: T
             <TouchableOpacity
                 onPress={() => setCollapsed((prev) => !prev)}
                 activeOpacity={0.7}
-                className="flex-row items-center justify-between mb-3"
+                className="flex-row items-center justify-between mb-3 "
             >
-                <View className="flex-row items-center flex-1">
+                <View className="flex-row items-center flex-1 ">
                     <Ionicons
                         name={collapsed ? 'chevron-up' : 'chevron-down'}
                         size={18}
@@ -33,7 +33,7 @@ export default function TreasureDateSection({ group, onEditLog, onDeleteLog }: T
                         {group.label}
                     </Text>
                 </View>
-                <Ionicons name="calendar-outline" size={20} color="#7D6E6B" />
+                {/* <Ionicons name="calendar-outline" size={20} color="#7D6E6B" /> */}
             </TouchableOpacity>
 
             {/* Logs for this date */}
