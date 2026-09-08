@@ -4,6 +4,14 @@ import { useFonts, Fredoka_400Regular, Fredoka_500Medium, Fredoka_600SemiBold, F
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import HeroCard, { HeroTask } from '@/components/index_components/hero-card';
+
+// Placeholder/static focus task. Replace with a database fetch later.
+const FOCUS_TASK: HeroTask = {
+    id: 'focus-1',
+    title: 'Finish wireframes for Unti-Unti',
+    iconName: 'school',
+};
 
 export default function HomeScreen() {
 	const [fontsLoaded] = useFonts({
@@ -41,6 +49,17 @@ export default function HomeScreen() {
 				</View>
 				{/* Sun icon in the top-right, slightly above the text */}
 				<Ionicons name="sunny" size={64} color="#F4C542" style={{ marginTop: -8 }} />
+			</View>
+
+			{/* Hero Card — highlights the single focus task */}
+			<View className="mt-8">
+				<HeroCard
+					task={FOCUS_TASK}
+					onComplete={(task) => {
+						// TODO: connect to database to mark the task as done
+						console.log('Task completed:', task.id);
+					}}
+				/>
 			</View>
 		</View>
 	);
