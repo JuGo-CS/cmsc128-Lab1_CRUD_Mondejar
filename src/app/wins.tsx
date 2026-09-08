@@ -1,11 +1,12 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
 import { useFonts, Fredoka_400Regular, Fredoka_500Medium, Fredoka_600SemiBold, Fredoka_700Bold } from '@expo-google-fonts/fredoka';
 import * as SplashScreen from 'expo-splash-screen';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import WinsTabs, { WinsTab } from '@/components/wins_components/wins-tabs';
 import TreasureDateSection from '@/components/wins_components/treasure-date-section';
-import { fetchTreasureGroups, TreasureGroup } from '@/dp_operations/wins/treasures';
+import WinsCalendarModal from '@/components/wins_components/wins-calendar-modal';
+import { fetchTreasureGroups, TreasureGroup, TreasureLog, deleteTreasure } from '@/dp_operations/wins/treasures';
 
 // Placeholder treasure groups used when the database fetch hasn't loaded yet.
 // Replace with real data once the backend is fully wired.
@@ -29,6 +30,15 @@ const PLACEHOLDER_GROUPS: TreasureGroup[] = [
     },
 ];
 
+/** Today's date as `YYYY-MM-DD` in local time. */
+function todayDateString(): string {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
 export default function WinsScreen() {
     const [fontsLoaded] = useFonts({
         Fredoka_400Regular,
@@ -40,6 +50,12 @@ export default function WinsScreen() {
     const [activeTab, setActiveTab] = useState<WinsTab>('treasures');
     const [groups, setGroups] = useState<TreasureGroup[]>(PLACEHOLDER_GROUPS);
     const [loading, setLoading] = useState(true);
+    const [calendarVisible, setCalendarVisible] = useState(false);
+    const [selectedDate, setSelectedDate] = useState<string>(todayDateString());
+
+    // Ref to the scrollable logbook + a map of each date group's y-offset.
+    const scrollRef = useRef<ScrollView>(null);
+    const dateOffsets = useRef<Record<string, number>>({});
 
     useEffect(() => {
         if (fontsLoaded) {
@@ -69,6 +85,40 @@ export default function WinsScreen() {
         };
     }, []);
 
+    // Handle editing a treasure's title.
+    const handleEditLog = (log: TreasureLog) => {
+        // TODO: replace with a text-input prompt/modal for editing the title.
+        console.log('Edit treasure:', log.id);
+    };
+
+    // Handle deleting a treasure from the database, then update local state.
+    const handleDeleteLog = (log: TreasureLog) => {
+        deleteTreasure(log.id)
+            .then(() => {
+                setGroups((prev) =>
+                    prev
+                        .map((group) => ({
+                            ...group,
+                            logs: group.logs.filter((l) => l.id !== log.id),
+                        }))
+                        .filter((group) => group.logs.length > 0)
+                );
+            })
+            .catch((err) => {
+                console.error('Failed to delete treasure:', err);
+            });
+    };
+
+    // Jump the logbook to the selected date. Does NOT filter — the whole
+    // logbook stays scrollable so the user can continue browsing nearby days.
+    const handleSelectDate = (date: string) => {
+        setSelectedDate(date);
+        const y = dateOffsets.current[date];
+        if (y != null) {
+            scrollRef.current?.scrollTo({ y, animated: true });
+        }
+    };
+
     if (!fontsLoaded) {
         return null;
     }
@@ -77,19 +127,35 @@ export default function WinsScreen() {
         <View className="flex-1 bg-cozyBg pt-14 px-5">
             {/* Header row with "Wins" title and sun icon */}
             <View className="flex-row items-start justify-between">
-                <Text className="text-4xl font-fredoka-semibold font-bold text-deepBrown">
-                    Wins
-                </Text>
-                <Ionicons name="sunny" size={56} color="#F4C542" />
+                <View className="flex-1 pr-4">
+                    <Text className="text-4xl font-fredoka-semibold font-bold text-deepBrown mt-2 leading-tight">
+                        Wins
+                    </Text>
+                </View>
+                <Ionicons name="sunny" size={80} color="#F4C542" style={{ marginTop: -22 }} />
             </View>
-            <View className="h-[2px] bg-deepBrown mt-2" />
+            <View className="h-[2px] bg-deepBrown mr-28 -mt-2" />
 
             {/* Treasures / Mosaic toggle */}
             <WinsTabs activeTab={activeTab} onChangeTab={setActiveTab} />
 
-            {/* Scrollable content */}
+            {/* Single calendar icon at the top of the Treasures section */}
+            {activeTab === 'treasures' && (
+                <View className="flex-row items-center justify-end mt-4">
+                    <TouchableOpacity
+                        onPress={() => setCalendarVisible(true)}
+                        activeOpacity={0.7}
+                        className="p-2"
+                    >
+                        <Ionicons name="calendar-outline" size={24} color="#7D6E6B" />
+                    </TouchableOpacity>
+                </View>
+            )}
+
+            {/* Scrollable logbook content */}
             <ScrollView
-                className="flex-1 mt-6"
+                ref={scrollRef}
+                className="flex-1 mt-2"
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={{ paddingBottom: 120 }}
             >
@@ -104,7 +170,18 @@ export default function WinsScreen() {
                         </Text>
                     ) : (
                         groups.map((group) => (
-                            <TreasureDateSection key={group.date} group={group} />
+                            <View
+                                key={group.date}
+                                onLayout={(e) => {
+                                    dateOffsets.current[group.date] = e.nativeEvent.layout.y;
+                                }}
+                            >
+                                <TreasureDateSection
+                                    group={group}
+                                    onEditLog={handleEditLog}
+                                    onDeleteLog={handleDeleteLog}
+                                />
+                            </View>
                         ))
                     )
                 ) : (
@@ -114,6 +191,14 @@ export default function WinsScreen() {
                     </Text>
                 )}
             </ScrollView>
+
+            {/* Calendar modal */}
+            <WinsCalendarModal
+                visible={calendarVisible}
+                onClose={() => setCalendarVisible(false)}
+                onSelectDate={handleSelectDate}
+                selectedDate={selectedDate}
+            />
         </View>
     );
 }

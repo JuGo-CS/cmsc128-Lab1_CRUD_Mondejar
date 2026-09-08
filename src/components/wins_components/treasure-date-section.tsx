@@ -1,16 +1,18 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { TreasureGroup } from '@/dp_operations/wins/treasures';
+import { TreasureGroup, TreasureLog } from '@/dp_operations/wins/treasures';
 import TreasureLogCard from './treasure-log-card';
 
 interface TreasureDateSectionProps {
     group: TreasureGroup;
+    onEditLog?: (log: TreasureLog) => void;
+    onDeleteLog?: (log: TreasureLog) => void;
 }
 
 // A date group in the Treasures section — a header row with a collapse/expand
 // chevron and a calendar icon, followed by the completed task logs for that day.
-export default function TreasureDateSection({ group }: TreasureDateSectionProps) {
+export default function TreasureDateSection({ group, onEditLog, onDeleteLog }: TreasureDateSectionProps) {
     const [collapsed, setCollapsed] = useState(false);
 
     return (
@@ -37,7 +39,12 @@ export default function TreasureDateSection({ group }: TreasureDateSectionProps)
             {/* Logs for this date */}
             {!collapsed &&
                 group.logs.map((log) => (
-                    <TreasureLogCard key={log.id} log={log} />
+                    <TreasureLogCard
+                        key={log.id}
+                        log={log}
+                        onEdit={onEditLog}
+                        onDelete={onDeleteLog}
+                    />
                 ))}
         </View>
     );

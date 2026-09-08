@@ -12,18 +12,18 @@ interface WinsTabsProps {
 // Treasures shows completed task logs; Mosaic (future) will show habit logs.
 export default function WinsTabs({ activeTab, onChangeTab }: WinsTabsProps) {
     return (
-        <View className="flex-row items-center mt-6">
+        <View className="flex-row items-center mt-4 gap-2">
             <TouchableOpacity
                 onPress={() => onChangeTab('treasures')}
                 activeOpacity={0.8}
-                className={`px-6 py-3 rounded-2xl ${
+                className={`flex-1 items-center py-3 rounded-2xl ${
                     activeTab === 'treasures'
                         ? 'bg-focusHero'
                         : 'bg-transparent'
                 }`}
             >
                 <Text
-                    className={`text-lg font-fredoka-bold ${
+                    className={`text-3xl font-fredoka-bold ${
                         activeTab === 'treasures' ? 'text-white' : 'text-deepBrown'
                     }`}
                 >
@@ -34,14 +34,14 @@ export default function WinsTabs({ activeTab, onChangeTab }: WinsTabsProps) {
             <TouchableOpacity
                 onPress={() => onChangeTab('mosaic')}
                 activeOpacity={0.8}
-                className={`px-6 py-3 rounded-2xl ${
+                className={`flex-1 items-center py-3 rounded-2xl ${
                     activeTab === 'mosaic'
                         ? 'bg-focusHero'
                         : 'bg-transparent'
                 }`}
             >
                 <Text
-                    className={`text-lg font-fredoka-bold ${
+                    className={`text-3xl font-fredoka-bold ${
                         activeTab === 'mosaic' ? 'text-white' : 'text-deepBrown'
                     }`}
                 >

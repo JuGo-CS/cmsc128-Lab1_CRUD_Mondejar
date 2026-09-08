@@ -145,7 +145,7 @@ export default function HomeScreen() {
 					</Text>
 				</View>
 				{/* Sun icon in the top-right, slightly above the text */}
-				<Ionicons name="sunny" size={64} color="#F4C542" style={{ marginTop: -8 }} />
+				<Ionicons name="sunny" size={80} color="#F4C542" style={{ marginTop: -22 }} />
 			</View>
 
 			{/* Hero Card — highlights the single focus task, or a relaxing message when all done */}

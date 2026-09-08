@@ -135,3 +135,39 @@ export async function fetchTreasureGroups(): Promise<TreasureGroup[]> {
         logs: groupLogs,
     }));
 }
+
+/**
+ * Update the title of a completed task log ("Treasure").
+ *
+ * The completed task stays in the `tasks` table; only its title is edited.
+ * This keeps the edit action persistent across app reloads.
+ */
+export async function updateTreasureTitle(taskId: string, title: string): Promise<void> {
+    const { error } = await supabase
+        .from('tasks')
+        .update({ title })
+        .eq('task_id', taskId);
+
+    if (error) {
+        console.error('Failed to update treasure title:', error.message);
+        throw error;
+    }
+}
+
+/**
+ * Delete a completed task log ("Treasure") from the `tasks` table.
+ *
+ * This permanently removes the task record. Use with care — the completion
+ * history is not recoverable once deleted.
+ */
+export async function deleteTreasure(taskId: string): Promise<void> {
+    const { error } = await supabase
+        .from('tasks')
+        .delete()
+        .eq('task_id', taskId);
+
+    if (error) {
+        console.error('Failed to delete treasure:', error.message);
+        throw error;
+    }
+}
