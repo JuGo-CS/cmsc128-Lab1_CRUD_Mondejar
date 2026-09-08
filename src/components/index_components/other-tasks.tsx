@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import TaskItem, { TaskItemData } from './task-item';
@@ -6,6 +6,10 @@ import TaskItem, { TaskItemData } from './task-item';
 interface OtherTasksProps {
     tasks: TaskItemData[];
     onToggleTask?: (task: TaskItemData) => void;
+    /** Whether the full task queue is expanded. */
+    expanded: boolean;
+    /** Toggle the expanded/collapsed state. */
+    onToggleExpanded: () => void;
 }
 
 // Fixed header for the "Other tasks" section (title + edit button).
@@ -32,19 +36,31 @@ export function OtherTasksHeader() {
 
 // "Other tasks" section — shows a low-pressure stacked preview of a few tasks.
 // Tapping the stack or "See some tasks" expands the full queue; tapping again collapses.
-export default function OtherTasks({ tasks, onToggleTask }: OtherTasksProps) {
-    const [expanded, setExpanded] = useState(false);
-
+export default function OtherTasks({ tasks, onToggleTask, expanded, onToggleExpanded }: OtherTasksProps) {
     // Show a limited number of tasks in the stacked preview.
     const PREVIEW_COUNT = 3;
     const visibleTasks = expanded ? tasks : tasks.slice(0, PREVIEW_COUNT);
     const hasMore = tasks.length > PREVIEW_COUNT;
 
+    // Empty state — no other tasks remaining.
+    if (tasks.length === 0) {
+        return (
+            <View className="mt-2">
+                <View className="bg-cardBg rounded-2xl px-5 py-6 items-center justify-center">
+                    <Ionicons name="checkmark-done-circle-outline" size={40} color="#7D6E6B" />
+                    <Text className="text-base font-fredoka-medium text-mutedBrown text-center mt-3">
+                        Nothing else on your plate. Nice and light!
+                    </Text>
+                </View>
+            </View>
+        );
+    }
+
     return (
         <View className="mt-2">
             {/* Stacked task area — touchable to expand/collapse */}
             <TouchableOpacity
-                onPress={() => setExpanded((prev) => !prev)}
+                onPress={onToggleExpanded}
                 activeOpacity={0.9}
                 className="mt-2"
             >
@@ -99,7 +115,7 @@ export default function OtherTasks({ tasks, onToggleTask }: OtherTasksProps) {
 
             {/* "See some tasks" toggle */}
             <TouchableOpacity
-                onPress={() => setExpanded((prev) => !prev)}
+                onPress={onToggleExpanded}
                 activeOpacity={0.7}
                 className="flex-row items-center justify-end mt-3"
             >

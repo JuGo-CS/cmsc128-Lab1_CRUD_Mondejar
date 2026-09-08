@@ -43,6 +43,9 @@ export default function HomeScreen() {
 	// Daily habits — static for now, wired to the database later.
 	const [habits, setHabits] = useState<HabitData[]>(INITIAL_HABITS);
 
+	// Whether the "Other tasks" queue is expanded. Controls scrollability below.
+	const [otherTasksExpanded, setOtherTasksExpanded] = useState(false);
+
 	useEffect(() => {
 		if (fontsLoaded) {
 			SplashScreen.hideAsync();
@@ -100,31 +103,35 @@ export default function HomeScreen() {
 				<Ionicons name="sunny" size={64} color="#F4C542" style={{ marginTop: -8 }} />
 			</View>
 
-			{/* Hero Card — highlights the single focus task (fixed) */}
-			{heroTask && (
+			{/* Hero Card — highlights the single focus task, or a relaxing message when all done */}
+			<View className="mt-8">
+				<HeroCard
+					task={heroTask}
+					empty={!heroTask}
+					onComplete={handleHeroComplete}
+				/>
+			</View>
+
+			{/* Other tasks title + edit button — fixed (hidden when no other tasks remain) */}
+			{otherTasks.length > 0 && (
 				<View className="mt-8">
-					<HeroCard
-						task={heroTask}
-						onComplete={handleHeroComplete}
-					/>
+					<OtherTasksHeader />
 				</View>
 			)}
 
-			{/* Other tasks title + edit button — fixed */}
-			<View className="mt-8">
-				<OtherTasksHeader />
-			</View>
-
-			{/* Scrollable content below the Other Tasks header */}
+			{/* Scrollable content below the Other Tasks header — scroll only when expanded */}
 			<ScrollView
 				className="flex-1"
 				showsVerticalScrollIndicator={false}
+				scrollEnabled={otherTasksExpanded}
 				contentContainerStyle={{ paddingBottom: 120 }}
 			>
 				{/* Other tasks — stacked queue preview with expand/collapse */}
 				<OtherTasks
 					tasks={otherTasks}
 					onToggleTask={handleToggleTask}
+					expanded={otherTasksExpanded}
+					onToggleExpanded={() => setOtherTasksExpanded((prev) => !prev)}
 				/>
 
 				{/* Daily habits — horizontal carousel */}
