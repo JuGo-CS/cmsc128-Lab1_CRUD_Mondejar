@@ -35,6 +35,7 @@ module.exports = {
                 lowPriority: '#C3E2DD',
                 deadlineBadge: '#D6E2E9',
                 timeBadge: '#E1D5E7',
+                categoryBadge: '#D4E5F7',
             },
         },
     },
