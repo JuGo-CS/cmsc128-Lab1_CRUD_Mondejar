@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { CalendarTask, SortCriteria } from '@/dp_operations/calendar/tasks';
@@ -12,13 +12,17 @@ const PRIORITY_STYLES: Record<CalendarTask['priority'], { bg: string; label: str
 
 // The bottom-bar background color when sorting by category (light blue).
 const CATEGORY_BADGE_BG = '#D4E5F7';
-const CREATEDAT_BADGE_BG = '#E1D5E7'
+const CREATEDAT_BADGE_BG = '#E1D5E7';
 
 interface CalendarTaskCardProps {
     task: CalendarTask;
     /** The active sort criterion — determines what the bottom detail shows. */
     sortCriteria: SortCriteria;
+    /** When true, the card is in global edit mode (unified, reveals actions). */
+    editMode: boolean;
     onToggle?: (task: CalendarTask) => void;
+    onEdit?: (task: CalendarTask) => void;
+    onDelete?: (task: CalendarTask) => void;
 }
 
 /** Format a `YYYY-MM-DD` date into a short friendly label like "Sep 12, 2026". */
@@ -74,22 +78,98 @@ function bgForCriteria(task: CalendarTask, criteria: SortCriteria): string {
     }
 }
 
-// A task card in the date-based calendar queue. Shows the task row (icon, title,
-// checkbox) on top and a detail bar below whose text and color follow the sort.
-export default function CalendarTaskCard({ task, sortCriteria, onToggle }: CalendarTaskCardProps) {
+// A task card in the date-based calendar queue.
+//
+// Normal mode: two sections — the top row completes the task, the bottom bar
+// expands to reveal details. Edit mode: the whole card is unified and tapping it
+// reveals Edit / Delete actions (matching the Wins tab interaction).
+export default function CalendarTaskCard({
+    task,
+    sortCriteria,
+    editMode,
+    onToggle,
+    onEdit,
+    onDelete,
+}: CalendarTaskCardProps) {
+    const [expanded, setExpanded] = useState(false);
+    const [showActions, setShowActions] = useState(false);
+
     const detail = detailForCriteria(task, sortCriteria);
     const bg = bgForCriteria(task, sortCriteria);
 
+    // Edit mode: the entire card is one tappable unit that reveals Edit/Delete.
+    if (editMode) {
+        return (
+            <View className="mb-4">
+                <TouchableOpacity
+                    onPress={() => setShowActions((prev) => !prev)}
+                    activeOpacity={0.8}
+                    className="bg-cardBg rounded-2xl overflow-hidden border border-white/50"
+                >
+                    <View className="flex-row items-center px-4 py-3 bg-habitCard">
+                        <View className="bg-taskStack/40 rounded-lg p-2 mr-3">
+                            <Ionicons name={task.iconName} size={20} color="#7D6E6B" />
+                        </View>
+                        <Text
+                            numberOfLines={1}
+                            ellipsizeMode="tail"
+                            className="flex-1 text-base font-fredoka-semibold text-deepBrown"
+                        >
+                            {task.title}
+                        </Text>
+                    </View>
+                    <View
+                        className="flex-row items-center justify-between px-4 py-2"
+                        style={{ backgroundColor: bg }}
+                    >
+                        <Text numberOfLines={1} className="flex-1 text-base font-fredoka-semibold text-deepBrown">
+                            {detail}
+                        </Text>
+                        <Ionicons name="chevron-down" size={18} color="#3D2E2B" />
+                    </View>
+                </TouchableOpacity>
+
+                {/* Edit / Delete actions revealed on tap (Wins tab pattern) */}
+                {showActions && (
+                    <View className="flex-row items-center justify-end mt-2">
+                        <TouchableOpacity
+                            onPress={() => onEdit?.(task)}
+                            activeOpacity={0.7}
+                            className="flex-row items-center px-3 py-2 rounded-xl bg-cardBg border border-white/50 mr-2"
+                        >
+                            <Ionicons name="create-outline" size={16} color="#7D6E6B" />
+                            <Text className="text-sm font-fredoka-semibold text-deepBrown ml-1">
+                                Edit
+                            </Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            onPress={() => onDelete?.(task)}
+                            activeOpacity={0.7}
+                            className="flex-row items-center px-3 py-2 rounded-xl bg-cardBg border border-white/50"
+                        >
+                            <Ionicons name="trash-outline" size={16} color="#C0392B" />
+                            <Text className="text-sm font-fredoka-semibold text-deepBrown ml-1">
+                                Delete
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
+                )}
+            </View>
+        );
+    }
+
+    // Normal mode: top row completes, bottom bar expands details.
     return (
         <View className="bg-cardBg rounded-2xl mb-4 overflow-hidden border border-white/50">
-            {/* Task row */}
-            <View className="flex-row items-center px-4 py-3 bg-habitCard">
-                {/* Task icon */}
+            {/* Top section — tap to complete */}
+            <TouchableOpacity
+                onPress={() => onToggle?.(task)}
+                activeOpacity={0.8}
+                className="flex-row items-center px-4 py-3 bg-habitCard"
+            >
                 <View className="bg-taskStack/40 rounded-lg p-2 mr-3">
                     <Ionicons name={task.iconName} size={20} color="#7D6E6B" />
                 </View>
-
-                {/* Title */}
                 <Text
                     numberOfLines={1}
                     ellipsizeMode="tail"
@@ -97,24 +177,37 @@ export default function CalendarTaskCard({ task, sortCriteria, onToggle }: Calen
                 >
                     {task.title}
                 </Text>
-
-                {/* Checkbox */}
                 <TouchableOpacityCheckbox
                     completed={task.completed}
                     onPress={() => onToggle?.(task)}
                 />
-            </View>
+            </TouchableOpacity>
 
-            {/* Detail bar — text + color reflect the active sort criterion */}
-            <View
+            {/* Bottom section — tap to expand details */}
+            <TouchableOpacity
+                onPress={() => setExpanded((prev) => !prev)}
+                activeOpacity={0.8}
                 className="flex-row items-center justify-between px-4 py-2"
                 style={{ backgroundColor: bg }}
             >
                 <Text numberOfLines={1} className="flex-1 text-base font-fredoka-semibold text-deepBrown">
                     {detail}
                 </Text>
-                <Ionicons name="chevron-down" size={18} color="#3D2E2B" />
-            </View>
+                <Ionicons
+                    name={expanded ? 'chevron-up' : 'chevron-down'}
+                    size={18}
+                    color="#3D2E2B"
+                />
+            </TouchableOpacity>
+
+            {/* Expanded details */}
+            {expanded && (
+                <View className="px-4 py-3 bg-habitCard border-t border-white/50">
+                    <Text className="text-sm font-fredoka text-mutedBrown">
+                        {task.description || 'No description.'}
+                    </Text>
+                </View>
+            )}
         </View>
     );
 }

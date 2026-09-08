@@ -33,7 +33,7 @@ export interface TreasureGroup {
  */
 export interface Category {
     cat_id: string;
-    title: string;
+    cat_name: string;
     emoji: string;
 }
 

@@ -8,6 +8,8 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 export interface CalendarTask {
     id: string;
     title: string;
+    description: string | null;
+    catId: string | null;
     iconName: keyof typeof Ionicons.glyphMap;
     /** Priority from `tasks.priority`: 'high' | 'medium' | 'low'. */
     priority: 'high' | 'medium' | 'low';
@@ -28,6 +30,7 @@ interface TaskRow {
     task_id: string;
     cat_id: string | null;
     title: string;
+    description: string | null;
     status: string;
     priority: string | null;
     deadline: string | null;
@@ -95,6 +98,8 @@ function toCalendarTask(row: TaskRow): CalendarTask {
     return {
         id: row.task_id,
         title: row.title,
+        description: row.description,
+        catId: row.cat_id,
         iconName: iconForEmoji(row.categories?.emoji_holder),
         priority: normalizePriority(row.priority),
         deadline: normalizeDate(row.deadline),

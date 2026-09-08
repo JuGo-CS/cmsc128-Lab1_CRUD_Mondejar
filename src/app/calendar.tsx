@@ -5,7 +5,26 @@ import * as SplashScreen from 'expo-splash-screen';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import CalendarTaskCard from '@/components/calendar_components/calendar-task-card';
 import SortControl from '@/components/calendar_components/sort-control';
+import EditTreasureModal from '@/components/wins_components/edit-treasure-modal';
+import DeleteTreasureModal from '@/components/wins_components/delete-treasure-modal';
 import { fetchTasksForDate, CalendarTask, SortCriteria, sortTasks } from '@/dp_operations/calendar/tasks';
+import { completeTask } from '@/dp_operations/home/tasks';
+import { fetchCategories, updateTreasure, deleteTreasure, Category, TreasureLog } from '@/dp_operations/wins/treasures';
+
+// Map a CalendarTask to the TreasureLog shape the Wins edit/delete modals expect.
+// The modals only read id/title/description/catId; completedDate/Time are unused
+// in the edit/delete flows, so we supply empty placeholders.
+function toTreasureLog(task: CalendarTask): TreasureLog {
+    return {
+        id: task.id,
+        title: task.title,
+        description: task.description,
+        catId: task.catId,
+        iconName: task.iconName,
+        completedDate: '',
+        completedTime: '',
+    };
+}
 
 // Temporary/hardcoded selected date for this scenario.
 // A real calendar will later supply this value without a rewrite.
@@ -33,6 +52,16 @@ export default function CalendarScreen() {
     const [loading, setLoading] = useState(true);
     const [criteria, setCriteria] = useState<SortCriteria>('priority');
     const [ascending, setAscending] = useState(true);
+    const [editMode, setEditMode] = useState(false);
+
+    // Edit / delete modal state (reuses the Wins tab flow).
+    const [editingTask, setEditingTask] = useState<CalendarTask | null>(null);
+    const [editModalVisible, setEditModalVisible] = useState(false);
+    const [categories, setCategories] = useState<Category[]>([]);
+    const [saving, setSaving] = useState(false);
+    const [deletingTask, setDeletingTask] = useState<CalendarTask | null>(null);
+    const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+    const [deleting, setDeleting] = useState(false);
 
     useEffect(() => {
         if (fontsLoaded) {
@@ -40,7 +69,7 @@ export default function CalendarScreen() {
         }
     }, [fontsLoaded]);
 
-    // Fetch the tasks applicable to the selected date.
+    // Fetch the tasks applicable to the selected date + categories.
     useEffect(() => {
         let isMounted = true;
         fetchTasksForDate(SELECTED_DATE)
@@ -57,10 +86,86 @@ export default function CalendarScreen() {
                     setLoading(false);
                 }
             });
+
+        fetchCategories()
+            .then((data) => {
+                if (isMounted) {
+                    setCategories(data);
+                }
+            })
+            .catch((err) => {
+                console.error('Failed to load categories:', err);
+            });
+
         return () => {
             isMounted = false;
         };
     }, []);
+
+    // Mark a task as completed (goes to Treasures via the existing logic).
+    const handleCompleteTask = (task: CalendarTask) => {
+        completeTask(task.id)
+            .then(() => {
+                setTasks((prev) => prev.filter((t) => t.id !== task.id));
+            })
+            .catch((err) => {
+                console.error('Failed to complete task:', err);
+            });
+    };
+
+    // Open the edit modal for a task.
+    const handleEditTask = (task: CalendarTask) => {
+        setEditingTask(task);
+        setEditModalVisible(true);
+    };
+
+    // Confirm the edited task, then refresh the queue.
+    const handleConfirmEdit = (payload: {
+        status: 'completed' | 'pending';
+        title: string;
+        description: string | null;
+        cat_id: string | null;
+    }) => {
+        if (!editingTask) return;
+        setSaving(true);
+        updateTreasure(editingTask.id, payload)
+            .then(() => {
+                setEditModalVisible(false);
+                setEditingTask(null);
+                return fetchTasksForDate(SELECTED_DATE).then((data) => {
+                    setTasks(data);
+                });
+            })
+            .catch((err) => {
+                console.error('Failed to update task:', err);
+            })
+            .finally(() => {
+                setSaving(false);
+            });
+    };
+
+    // Open the delete confirmation for a task.
+    const handleDeleteTask = (task: CalendarTask) => {
+        setDeletingTask(task);
+        setDeleteModalVisible(true);
+    };
+
+    // Confirm the permanent deletion, then refresh the queue.
+    const handleConfirmDelete = (task: CalendarTask) => {
+        setDeleting(true);
+        deleteTreasure(task.id)
+            .then(() => {
+                setTasks((prev) => prev.filter((t) => t.id !== task.id));
+                setDeleteModalVisible(false);
+                setDeletingTask(null);
+            })
+            .catch((err) => {
+                console.error('Failed to delete task:', err);
+            })
+            .finally(() => {
+                setDeleting(false);
+            });
+    };
 
     if (!fontsLoaded) {
         return null;
@@ -109,8 +214,16 @@ export default function CalendarScreen() {
                         onChangeCriteria={setCriteria}
                         onToggleDirection={() => setAscending((prev) => !prev)}
                     />
-                    <TouchableOpacity activeOpacity={0.7} className="p-1">
-                        <Ionicons name="create-outline" size={24} color="#3D2E2B" />
+                    <TouchableOpacity
+                        onPress={() => setEditMode((prev) => !prev)}
+                        activeOpacity={0.7}
+                        className="p-1"
+                    >
+                        <Ionicons
+                            name={editMode ? 'close' : 'create-outline'}
+                            size={24}
+                            color={editMode ? '#C0392B' : '#3D2E2B'}
+                        />
                     </TouchableOpacity>
                 </View>
 
@@ -129,14 +242,39 @@ export default function CalendarScreen() {
                             key={task.id}
                             task={task}
                             sortCriteria={criteria}
-                            onToggle={(t) => {
-                                // TODO: connect to database to toggle task completion
-                                console.log('Toggle task:', t.id);
-                            }}
+                            editMode={editMode}
+                            onToggle={handleCompleteTask}
+                            onEdit={handleEditTask}
+                            onDelete={handleDeleteTask}
                         />
                     ))
                 )}
             </ScrollView>
+
+            {/* Edit task modal */}
+            <EditTreasureModal
+                visible={editModalVisible}
+                log={editingTask ? toTreasureLog(editingTask) : null}
+                categories={categories}
+                onClose={() => {
+                    setEditModalVisible(false);
+                    setEditingTask(null);
+                }}
+                onConfirm={handleConfirmEdit}
+                saving={saving}
+            />
+
+            {/* Delete confirmation modal */}
+            <DeleteTreasureModal
+                visible={deleteModalVisible}
+                log={deletingTask ? toTreasureLog(deletingTask) : null}
+                onClose={() => {
+                    setDeleteModalVisible(false);
+                    setDeletingTask(null);
+                }}
+                onConfirmDelete={(log) => handleConfirmDelete(deletingTask!)}
+                deleting={deleting}
+            />
         </View>
     );
 }
