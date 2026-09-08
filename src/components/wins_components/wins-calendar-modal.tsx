@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, Modal, ScrollView } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { View, Text, TouchableOpacity, Modal, ScrollView, Animated } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
 interface WinsCalendarModalProps {
@@ -9,6 +9,18 @@ interface WinsCalendarModalProps {
     onSelectDate: (date: string) => void;
     /** The currently selected date as `YYYY-MM-DD`. */
     selectedDate: string;
+}
+
+/** Format a `YYYY-MM-DD` string into "September 12, 2026" style label. */
+function formatFullDate(dateStr: string): string {
+    const [year, month, day] = dateStr.split('-').map(Number);
+    const date = new Date(year, month - 1, day);
+    return date.toLocaleDateString('en-US', {
+        weekday: 'long',
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric',
+    });
 }
 
 /** Format a `YYYY-MM-DD` string into a monthly label like "September 2026". */
@@ -29,6 +41,56 @@ function buildMonthDays(year: number, month: number): (string | null)[] {
     return cells;
 }
 
+// A day cell that scales up slightly when tapped, giving tactile feedback.
+function DayCell({
+    date,
+    isSelected,
+    isToday,
+    onPress,
+}: {
+    date: string;
+    isSelected: boolean;
+    isToday: boolean;
+    onPress: () => void;
+}) {
+    const scale = useRef(new Animated.Value(1)).current;
+
+    const handlePress = () => {
+        Animated.sequence([
+            Animated.timing(scale, { toValue: 0.85, duration: 90, useNativeDriver: true }),
+            Animated.spring(scale, { toValue: 1, friction: 4, useNativeDriver: true }),
+        ]).start();
+        onPress();
+    };
+
+    return (
+        <TouchableOpacity onPress={handlePress} activeOpacity={0.7} className="w-[14.28%] aspect-square items-center justify-center">
+            <Animated.View
+                style={{ transform: [{ scale }] }}
+                className={`w-10 h-10 items-center justify-center rounded-full ${
+                    isSelected
+                        ? 'bg-focusHero'
+                        : isToday
+                        ? 'bg-focusHero/20'
+                        : 'bg-transparent'
+                }`}
+            >
+                <Text
+                    className={`text-base font-fredoka-semibold ${
+                        isSelected
+                            ? 'text-white'
+                            : isToday
+                            ? 'text-focusHero'
+                            : 'text-deepBrown'
+                    }`}
+                >
+                    {Number(date.split('-')[2])}
+                </Text>
+            </Animated.View>
+        </TouchableOpacity>
+    );
+}
+
 // A calendar modal for the Wins screen. Shows the current and previous month,
 // with selectable dates that navigate the logbook to that day's records.
 export default function WinsCalendarModal({
@@ -40,6 +102,7 @@ export default function WinsCalendarModal({
     const now = new Date();
     const currentYear = now.getFullYear();
     const currentMonth = now.getMonth();
+    const todayStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
     // Show current month first, then the previous month.
     const months = [
@@ -48,10 +111,10 @@ export default function WinsCalendarModal({
     ];
 
     return (
-        <Modal visible={visible} transparent animationType="slide">
-            <View className="flex-1 justify-end bg-black/60">
+        <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+            <View className="flex-1 justify-end bg-black/60 pt-40">
                 <View
-                    className="bg-cozyBg rounded-t-3xl p-5 pb-8"
+                    className="bg-cozyBg rounded-t-3xl p-6 pb-8"
                     style={{
                         shadowColor: '#000',
                         shadowOffset: { width: 0, height: -4 },
@@ -61,26 +124,38 @@ export default function WinsCalendarModal({
                     }}
                 >
                     {/* Header */}
-                    <View className="flex-row items-center justify-between mb-4">
-                        <Text className="text-xl font-fredoka-bold text-deepBrown">
-                            Jump to a day
-                        </Text>
-                        <TouchableOpacity onPress={onClose} activeOpacity={0.7}>
-                            <Ionicons name="close" size={24} color="#7D6E6B" />
+                    <View className="flex-row items-start justify-between mb-2">
+                        <View className="flex-1 pr-4">
+                            <Text className="text-2xl font-fredoka-bold text-deepBrown">
+                                Jump to a day
+                            </Text>
+                            <Text className="text-sm font-fredoka text-mutedBrown mt-1">
+                                Currently viewing
+                            </Text>
+                            <Text className="text-base font-fredoka-semibold text-focusHero mt-0.5">
+                                {formatFullDate(selectedDate)}
+                            </Text>
+                        </View>
+                        <TouchableOpacity onPress={onClose} activeOpacity={0.7} className="p-1">
+                            <Ionicons name="close" size={26} color="#7D6E6B" />
                         </TouchableOpacity>
                     </View>
+
+                    {/* Divider */}
+                    <View className="h-[2px] bg-deepBrown/10 mb-5" />
 
                     <ScrollView showsVerticalScrollIndicator={false}>
                         {months.map(({ year, month }) => (
                             <View key={`${year}-${month}`} className="mb-6">
-                                <Text className="text-base font-fredoka-semibold text-deepBrown mb-2">
+                                {/* Month label */}
+                                <Text className="text-lg font-fredoka-bold text-deepBrown mb-3">
                                     {monthLabel(year, month)}
                                 </Text>
 
                                 {/* Weekday header */}
-                                <View className="flex-row mb-1">
+                                <View className="flex-row mb-2">
                                     {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => (
-                                        <Text key={i} className="flex-1 text-center text-xs font-fredoka text-mutedBrown">
+                                        <Text key={i} className="flex-1 text-center text-xs font-fredoka-semibold text-mutedBrown">
                                             {d}
                                         </Text>
                                     ))}
@@ -92,27 +167,17 @@ export default function WinsCalendarModal({
                                         if (!date) {
                                             return <View key={`e-${i}`} className="w-[14.28%] aspect-square" />;
                                         }
-                                        const isSelected = date === selectedDate;
                                         return (
-                                            <TouchableOpacity
+                                            <DayCell
                                                 key={date}
+                                                date={date}
+                                                isSelected={date === selectedDate}
+                                                isToday={date === todayStr}
                                                 onPress={() => {
                                                     onSelectDate(date);
                                                     onClose();
                                                 }}
-                                                activeOpacity={0.7}
-                                                className={`w-[14.28%] aspect-square items-center justify-center rounded-full ${
-                                                    isSelected ? 'bg-focusHero' : ''
-                                                }`}
-                                            >
-                                                <Text
-                                                    className={`text-sm font-fredoka ${
-                                                        isSelected ? 'text-white' : 'text-deepBrown'
-                                                    }`}
-                                                >
-                                                    {Number(date.split('-')[2])}
-                                                </Text>
-                                            </TouchableOpacity>
+                                            />
                                         );
                                     })}
                                 </View>
