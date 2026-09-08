@@ -53,8 +53,6 @@ function detailForCriteria(task: CalendarTask, criteria: SortCriteria): string {
     switch (criteria) {
         case 'priority':
             return PRIORITY_STYLES[task.priority].label;
-        case 'deadline':
-            return formatDate(task.deadline);
         case 'category':
             return task.categoryName ?? 'No category';
         case 'createdAt':

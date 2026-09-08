@@ -156,7 +156,7 @@ export async function fetchTasksForDate(selectedDate: string): Promise<CalendarT
  * - 'category'  → A → Z by category title (or reversed)
  * - 'createdAt' → Newest → Oldest (or reversed)
  */
-export type SortCriteria = 'priority' | 'deadline' | 'category' | 'createdAt';
+export type SortCriteria = 'priority' | 'category' | 'createdAt';
 
 /** A fixed rank for each priority level, used to order High → Low. */
 const PRIORITY_RANK: Record<CalendarTask['priority'], number> = {
@@ -181,13 +181,6 @@ export function sortTasks(
         switch (criteria) {
             case 'priority':
                 result = PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority];
-                break;
-            case 'deadline':
-                // Tasks with no deadline sort last (treated as furthest out).
-                if (!a.deadline && !b.deadline) result = 0;
-                else if (!a.deadline) result = 1;
-                else if (!b.deadline) result = -1;
-                else result = a.deadline.localeCompare(b.deadline);
                 break;
             case 'category':
                 result = (a.categoryName ?? '').localeCompare(b.categoryName ?? '');

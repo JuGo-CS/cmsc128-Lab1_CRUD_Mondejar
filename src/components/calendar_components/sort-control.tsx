@@ -13,7 +13,6 @@ interface SortControlProps {
 // Human-readable label for each sort criterion.
 const CRITERIA_LABELS: Record<SortCriteria, string> = {
     priority: 'Priority',
-    deadline: 'Deadline',
     category: 'Category',
     createdAt: 'Time added',
 };
