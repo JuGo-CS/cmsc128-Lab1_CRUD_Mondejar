@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView } from 'react-native';
+import { View, Text, ScrollView, ActivityIndicator } from 'react-native';
 import { useFonts, Fredoka_400Regular, Fredoka_500Medium, Fredoka_600SemiBold, Fredoka_700Bold } from '@expo-google-fonts/fredoka';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
@@ -9,17 +9,7 @@ import OtherTasks, { OtherTasksHeader } from '@/components/index_components/othe
 import DailyHabits from '@/components/index_components/daily-habits';
 import { TaskItemData } from '@/components/index_components/task-item';
 import { HabitData } from '@/components/index_components/habit-card';
-
-// Single ordered task queue. The first item is the current Hero Task (Focus for now),
-// and the remaining items form the "Other tasks" queue in priority order.
-// This mirrors how the database will supply tasks later — one ordered list.
-const INITIAL_TASK_QUEUE: TaskItemData[] = [
-    { id: 'task-1', title: 'Finish wireframes for Unti-Unti', iconName: 'school' },
-    { id: 'task-2', title: 'Review the CMSC 128 lab report', iconName: 'document-text' },
-    { id: 'task-3', title: 'Prepare slides for the group presentation', iconName: 'easel' },
-    { id: 'task-4', title: 'Reply to Professor Santos email', iconName: 'mail' },
-    { id: 'task-5', title: 'Water the plants', iconName: 'leaf' },
-];
+import { fetchPendingTaskQueue } from '@/lib/tasks';
 
 // Placeholder/static daily habits. Replace with a database fetch later.
 const INITIAL_HABITS: HabitData[] = [
@@ -38,7 +28,9 @@ export default function HomeScreen() {
 	});
 
 	// The ordered task queue. Index 0 is the current Hero Task.
-	const [taskQueue, setTaskQueue] = useState<TaskItemData[]>(INITIAL_TASK_QUEUE);
+	// Loaded from the Supabase `tasks` table (status = 'pending').
+	const [taskQueue, setTaskQueue] = useState<TaskItemData[]>([]);
+	const [tasksLoading, setTasksLoading] = useState(true);
 
 	// Daily habits — static for now, wired to the database later.
 	const [habits, setHabits] = useState<HabitData[]>(INITIAL_HABITS);
@@ -51,6 +43,26 @@ export default function HomeScreen() {
 			SplashScreen.hideAsync();
 		}
 	}, [fontsLoaded]);
+
+	// Load the pending task queue from Supabase on mount.
+	useEffect(() => {
+		let active = true;
+
+		fetchPendingTaskQueue()
+			.then((tasks) => {
+				if (active) setTaskQueue(tasks);
+			})
+			.catch((err) => {
+				console.error('Failed to load task queue:', err);
+			})
+			.finally(() => {
+				if (active) setTasksLoading(false);
+			});
+
+		return () => {
+			active = false;
+		};
+	}, []);
 
 	if (!fontsLoaded) {
 		return null;
@@ -105,15 +117,24 @@ export default function HomeScreen() {
 
 			{/* Hero Card — highlights the single focus task, or a relaxing message when all done */}
 			<View className="mt-8">
-				<HeroCard
-					task={heroTask}
-					empty={!heroTask}
-					onComplete={handleHeroComplete}
-				/>
+				{tasksLoading ? (
+					<View className="rounded-3xl bg-focusHero p-5 items-center justify-center">
+						<ActivityIndicator color="#FFFFFF" />
+						<Text className="text-lg font-fredoka-medium text-white mt-3">
+							Loading your tasks...
+						</Text>
+					</View>
+				) : (
+					<HeroCard
+						task={heroTask}
+						empty={!heroTask}
+						onComplete={handleHeroComplete}
+					/>
+				)}
 			</View>
 
 			{/* Other tasks title + edit button — fixed (hidden when no other tasks remain) */}
-			{otherTasks.length > 0 && (
+			{!tasksLoading && otherTasks.length > 0 && (
 				<View className="mt-8">
 					<OtherTasksHeader />
 				</View>
@@ -127,12 +148,14 @@ export default function HomeScreen() {
 				contentContainerStyle={{ paddingBottom: 120 }}
 			>
 				{/* Other tasks — stacked queue preview with expand/collapse */}
-				<OtherTasks
-					tasks={otherTasks}
-					onToggleTask={handleToggleTask}
-					expanded={otherTasksExpanded}
-					onToggleExpanded={() => setOtherTasksExpanded((prev) => !prev)}
-				/>
+				{!tasksLoading && (
+					<OtherTasks
+						tasks={otherTasks}
+						onToggleTask={handleToggleTask}
+						expanded={otherTasksExpanded}
+						onToggleExpanded={() => setOtherTasksExpanded((prev) => !prev)}
+					/>
+				)}
 
 				{/* Daily habits — horizontal carousel */}
 				<DailyHabits
