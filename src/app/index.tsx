@@ -6,7 +6,9 @@ import { useEffect } from 'react';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import HeroCard from '@/components/index_components/hero-card';
 import OtherTasks from '@/components/index_components/other-tasks';
+import DailyHabits from '@/components/index_components/daily-habits';
 import { TaskItemData } from '@/components/index_components/task-item';
+import { HabitData } from '@/components/index_components/habit-card';
 
 // Single ordered task queue. The first item is the current Hero Task (Focus for now),
 // and the remaining items form the "Other tasks" queue in priority order.
@@ -19,6 +21,14 @@ const INITIAL_TASK_QUEUE: TaskItemData[] = [
     { id: 'task-5', title: 'Water the plants', iconName: 'leaf' },
 ];
 
+// Placeholder/static daily habits. Replace with a database fetch later.
+const INITIAL_HABITS: HabitData[] = [
+    { id: 'habit-1', title: 'Read a book', emoji: '🧘' },
+    { id: 'habit-2', title: 'Drink water', emoji: '💧' },
+    { id: 'habit-3', title: 'Take a walk', emoji: '🚶' },
+    { id: 'habit-4', title: 'Stretch', emoji: '🧎' },
+];
+
 export default function HomeScreen() {
 	const [fontsLoaded] = useFonts({
 		Fredoka_400Regular,
@@ -29,6 +39,9 @@ export default function HomeScreen() {
 
 	// The ordered task queue. Index 0 is the current Hero Task.
 	const [taskQueue, setTaskQueue] = useState<TaskItemData[]>(INITIAL_TASK_QUEUE);
+
+	// Daily habits — static for now, wired to the database later.
+	const [habits, setHabits] = useState<HabitData[]>(INITIAL_HABITS);
 
 	useEffect(() => {
 		if (fontsLoaded) {
@@ -55,6 +68,13 @@ export default function HomeScreen() {
 	const handleToggleTask = (task: TaskItemData) => {
 		// TODO: connect to database to toggle task completion
 		console.log('Toggle task:', task.id);
+	};
+
+	const handleToggleHabit = (habit: HabitData) => {
+		// TODO: connect to database to mark the habit as completed
+		console.log('Habit completed:', habit.id);
+		// Mark as completed and remove it from the Daily Habits list.
+		setHabits((prev) => prev.filter((h) => h.id !== habit.id));
 	};
 
 	return (
@@ -91,6 +111,12 @@ export default function HomeScreen() {
 			<OtherTasks
 				tasks={otherTasks}
 				onToggleTask={handleToggleTask}
+			/>
+
+			{/* Daily habits — horizontal carousel */}
+			<DailyHabits
+				habits={habits}
+				onToggleHabit={handleToggleHabit}
 			/>
 		</View>
 	);
