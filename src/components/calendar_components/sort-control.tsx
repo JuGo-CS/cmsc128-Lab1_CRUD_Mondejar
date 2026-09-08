@@ -59,40 +59,65 @@ export default function SortControl({
             {/* Sort options menu */}
             <Modal visible={menuVisible} transparent animationType="fade" onRequestClose={() => setMenuVisible(false)}>
                 <TouchableOpacity
-                    style={{ flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.4)' }}
+                    style={{ flex: 1, backgroundColor: 'rgba(61, 46, 43, 0.4)' }}
                     activeOpacity={1}
                     onPress={() => setMenuVisible(false)}
                 >
-                    <View className="bg-cozyBg rounded-2xl mx-8 my-auto p-8">
-                        <Text className="text-base font-fredoka-bold text-deepBrown mb-3 ">
-                            Sort by
-                        </Text>
-                        {(Object.keys(CRITERIA_LABELS) as SortCriteria[]).map((option) => {
-                            const selected = option === criteria;
-                            return (
-                                <TouchableOpacity
-                                    key={option}
-                                    onPress={() => {
-                                        onChangeCriteria(option);
-                                        setMenuVisible(false);
-                                    }}
-                                    activeOpacity={0.7}
-                                    className="flex-row items-center justify-between py-3 px-2 rounded-xl"
-                                >
-                                    <Text
-                                        className={`text-base font-fredoka-semibold ${
-                                            selected ? 'text-focusHero' : 'text-deepBrown'
+                    {/* Modal Card - Stretches pure color up behind status bar via pt-14 */}
+                    <TouchableOpacity 
+                        activeOpacity={1}
+                        className="bg-cozyBg rounded-b-[28px] px-6 pt-14 pb-8 shadow-xl"
+                    >
+                        {/* Header Section */}
+                        <View className="flex-row items-center justify-between mb-3 px-1">
+                            <Text className="text-lg font-fredoka-bold text-deepBrown tracking-wide">
+                                Sort by
+                            </Text>
+                            <Ionicons name="swap-vertical" size={20} color="#7D6E6B" />
+                        </View>
+
+                        {/* Subtle Divider Line */}
+                        <View className="h-[1px] bg-deepBrown/10 mb-3" />
+
+                        {/* Options List */}
+                        <View className="gap-y-4">
+                            {(Object.keys(CRITERIA_LABELS) as SortCriteria[]).map((option) => {
+                                const selected = option === criteria;
+                                return (
+                                    <TouchableOpacity
+                                        key={option}
+                                        onPress={() => {
+                                            onChangeCriteria(option);
+                                            setMenuVisible(false);
+                                        }}
+                                        activeOpacity={0.7}
+                                        className={`flex-row items-center justify-between py-4 px-4 rounded-2xl transition-all ${
+                                            selected 
+                                                ? 'bg-focusHero/15 border border-focusHero/20' 
+                                                : 'bg-transparent'
                                         }`}
                                     >
-                                        {CRITERIA_LABELS[option]}
-                                    </Text>
-                                    {selected && (
-                                        <Ionicons name="checkmark" size={20} color="#6B8E70" />
-                                    )}
-                                </TouchableOpacity>
-                            );
-                        })}
-                    </View>
+                                        <Text
+                                            className={`text-base ${
+                                                selected 
+                                                    ? 'font-fredoka-bold text-focusHero' 
+                                                    : 'font-fredoka-medium text-deepBrown'
+                                            }`}
+                                        >
+                                            {CRITERIA_LABELS[option]}
+                                        </Text>
+                                        
+                                        {/* Checkmark Badge */}
+                                        {selected && (
+                                            <View className="bg-focusHero/20 p-1 rounded-full">
+                                                <Ionicons name="checkmark" size={16} color="#6B8E70" />
+                                            </View>
+                                        )}
+                                    </TouchableOpacity>
+                                );
+                            })}
+                        </View>
+                    </TouchableOpacity>
                 </TouchableOpacity>
             </Modal>
         </View>
