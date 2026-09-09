@@ -318,7 +318,11 @@ function DraggableTaskList({
     return (
         <View>
             {order.map((id) => {
-                const task = tasks.find((t) => t.id === id)!;
+                // Guard against stale ids: a task may have been removed from
+                // `tasks` (e.g. it just became the Hero Task) while `order` still
+                // holds its id. Skip it rather than assume it always exists.
+                const task = tasks.find((t) => t.id === id);
+                if (!task) return null;
                 return (
                     <DraggableRow
                         key={id}
@@ -379,7 +383,7 @@ function DraggableRow({
                 <TaskItem
                     task={task}
                     editMode
-                    isHero={task.isFocus}
+                    isHero={task.isFocus === true}
                     onMakeHero={onMakeHero}
                 />
             </Animated.View>

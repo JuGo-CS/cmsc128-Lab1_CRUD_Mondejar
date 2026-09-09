@@ -1,8 +1,10 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
 import { useFonts, Fredoka_400Regular, Fredoka_500Medium, Fredoka_600SemiBold, Fredoka_700Bold } from '@expo-google-fonts/fredoka';
 import * as SplashScreen from 'expo-splash-screen';
+import { useFocusEffect } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { subscribeToTaskChanges, emitTaskDataChanged } from '@/lib/data-events';
 import WinsTabs, { WinsTab } from '@/components/wins_components/wins-tabs';
 import TreasureDateSection from '@/components/wins_components/treasure-date-section';
 import WinsCalendarModal from '@/components/wins_components/wins-calendar-modal';
@@ -53,6 +55,7 @@ export default function WinsScreen() {
     const [activeTab, setActiveTab] = useState<WinsTab>('treasures');
     const [groups, setGroups] = useState<TreasureGroup[]>(PLACEHOLDER_GROUPS);
     const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
     const [calendarVisible, setCalendarVisible] = useState(false);
     const [selectedDate, setSelectedDate] = useState<string>(todayDateString());
 
@@ -80,38 +83,39 @@ export default function WinsScreen() {
         }
     }, [fontsLoaded]);
 
-    // Fetch the completed task logs (Treasures) + categories from the database.
-    useEffect(() => {
-        let isMounted = true;
-        fetchTreasureGroups()
-            .then((data) => {
-                if (isMounted) {
-                    setGroups(data);
-                }
-            })
+    // Refetch the completed task logs (Treasures) + categories from Supabase.
+    // Used on focus, on pull-to-refresh, and when task data changes elsewhere.
+    const refresh = useCallback(() => {
+        return Promise.all([
+            fetchTreasureGroups().then((data) => {
+                setGroups(data);
+            }),
+            fetchCategories().then((data) => {
+                setCategories(data);
+            }),
+        ])
             .catch((err) => {
                 console.error('Failed to load treasures:', err);
             })
             .finally(() => {
-                if (isMounted) {
-                    setLoading(false);
-                }
+                setLoading(false);
             });
-
-        fetchCategories()
-            .then((data) => {
-                if (isMounted) {
-                    setCategories(data);
-                }
-            })
-            .catch((err) => {
-                console.error('Failed to load categories:', err);
-            });
-
-        return () => {
-            isMounted = false;
-        };
     }, []);
+
+    // Refetch whenever the screen gains focus so newly completed tasks appear.
+    useFocusEffect(
+        useCallback(() => {
+            refresh();
+        }, [refresh])
+    );
+
+    // Refetch whenever another screen mutates task data, so Wins stays in sync.
+    useEffect(() => {
+        const unsubscribe = subscribeToTaskChanges(() => {
+            refresh();
+        });
+        return unsubscribe;
+    }, [refresh]);
 
     // Handle editing a treasure's title.
     const handleEditLog = (log: TreasureLog) => {
@@ -136,6 +140,7 @@ export default function WinsScreen() {
                 // Refresh the logbook so changes are immediately reflected.
                 return fetchTreasureGroups().then((data) => {
                     setGroups(data);
+                    emitTaskDataChanged();
                 });
             })
             .catch((err) => {
@@ -169,6 +174,7 @@ export default function WinsScreen() {
                 setDeleteModalVisible(false);
                 setDeletingLog(null);
                 setToast({ message: 'Treasure deleted.' });
+                emitTaskDataChanged();
             })
             .catch((err) => {
                 // Keep the task visible on failure; the user can retry.
@@ -188,6 +194,15 @@ export default function WinsScreen() {
             scrollRef.current?.scrollTo({ y, animated: true });
         }
     };
+
+    // Pull-to-refresh: refetch treasures, guarding against duplicate runs.
+    const handleRefresh = useCallback(() => {
+        if (refreshing) return;
+        setRefreshing(true);
+        refresh().finally(() => {
+            setRefreshing(false);
+        });
+    }, [refreshing, refresh]);
 
     if (!fontsLoaded) {
         return null;
@@ -228,6 +243,9 @@ export default function WinsScreen() {
                 className="flex-1 mt-2"
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={{ paddingBottom: 120 }}
+                refreshControl={
+                    <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#6B8E70" />
+                }
             >
                 {activeTab === 'treasures' ? (
                     loading ? (

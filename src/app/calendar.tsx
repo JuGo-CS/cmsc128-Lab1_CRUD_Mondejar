@@ -1,9 +1,10 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
 import { useFonts, Fredoka_400Regular, Fredoka_500Medium, Fredoka_600SemiBold, Fredoka_700Bold } from '@expo-google-fonts/fredoka';
 import * as SplashScreen from 'expo-splash-screen';
 import { useFocusEffect } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { subscribeToTaskChanges, emitTaskDataChanged } from '@/lib/data-events';
 import CalendarTaskCard from '@/components/calendar_components/calendar-task-card';
 import SortControl from '@/components/calendar_components/sort-control';
 import EditTreasureModal from '@/components/wins_components/edit-treasure-modal';
@@ -58,6 +59,7 @@ export default function CalendarScreen() {
 
     const [tasks, setTasks] = useState<CalendarTask[]>([]);
     const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
     const [criteria, setCriteria] = useState<SortCriteria>('priority');
     const [ascending, setAscending] = useState(true);
     const [editMode, setEditMode] = useState(false);
@@ -82,32 +84,37 @@ export default function CalendarScreen() {
         }
     }, [fontsLoaded]);
 
-    // Fetch the tasks applicable to the selected date. Refetches whenever the
-    // screen gains focus so newly created tasks appear after the Add modal closes.
+    // Refetch the tasks for the selected date from Supabase (source of truth).
+    // Used on focus, on pull-to-refresh, and when task data changes elsewhere.
+    const refreshTasks = useCallback(() => {
+        return fetchTasksForDate(selectedDate)
+            .then((data) => {
+                setTasks(data);
+            })
+            .catch((err) => {
+                console.error('Failed to load tasks for date:', err);
+            })
+            .finally(() => {
+                setLoading(false);
+            });
+    }, [selectedDate]);
+
+    // Fetch the tasks applicable to the selected date whenever the screen gains
+    // focus so newly created tasks appear after the Add modal closes.
     useFocusEffect(
         useCallback(() => {
-            let isMounted = true;
             setLoading(true);
-            fetchTasksForDate(selectedDate)
-                .then((data) => {
-                    if (isMounted) {
-                        setTasks(data);
-                    }
-                })
-                .catch((err) => {
-                    console.error('Failed to load tasks for date:', err);
-                })
-                .finally(() => {
-                    if (isMounted) {
-                        setLoading(false);
-                    }
-                });
-
-            return () => {
-                isMounted = false;
-            };
-        }, [selectedDate])
+            refreshTasks();
+        }, [refreshTasks])
     );
+
+    // Refetch whenever another screen mutates task data, so Calendar stays in sync.
+    useEffect(() => {
+        const unsubscribe = subscribeToTaskChanges(() => {
+            refreshTasks();
+        });
+        return unsubscribe;
+    }, [refreshTasks]);
 
     // Fetch categories once on mount (for the edit modal).
     useEffect(() => {
@@ -132,6 +139,7 @@ export default function CalendarScreen() {
             .then(() => {
                 setTasks((prev) => prev.filter((t) => t.id !== task.id));
                 setToast({ message: 'Task completed!' });
+                emitTaskDataChanged();
             })
             .catch((err) => {
                 console.error('Failed to complete task:', err);
@@ -160,6 +168,7 @@ export default function CalendarScreen() {
                 setToast({ message: 'Task updated!' });
                 return fetchTasksForDate(selectedDate).then((data) => {
                     setTasks(data);
+                    emitTaskDataChanged();
                 });
             })
             .catch((err) => {
@@ -185,6 +194,7 @@ export default function CalendarScreen() {
                 setDeleteModalVisible(false);
                 setDeletingTask(null);
                 setToast({ message: 'Task deleted.' });
+                emitTaskDataChanged();
             })
             .catch((err) => {
                 console.error('Failed to delete task:', err);
@@ -197,6 +207,16 @@ export default function CalendarScreen() {
     if (!fontsLoaded) {
         return null;
     }
+
+    // Pull-to-refresh: refetch tasks for the selected date, guarding against
+    // duplicate runs.
+    const handleRefresh = useCallback(() => {
+        if (refreshing) return;
+        setRefreshing(true);
+        refreshTasks().finally(() => {
+            setRefreshing(false);
+        });
+    }, [refreshing, refreshTasks]);
 
     // Apply the current sort criteria + direction to the fetched tasks.
     const sortedTasks = sortTasks(tasks, criteria, ascending);
@@ -219,6 +239,9 @@ export default function CalendarScreen() {
                 className="flex-1 mt-6"
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={{ paddingBottom: 120 }}
+                refreshControl={
+                    <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#6B8E70" />
+                }
             >
                 {/* "In your Queue" header */}
                 <View className="flex-row items-start justify-between mb-1">

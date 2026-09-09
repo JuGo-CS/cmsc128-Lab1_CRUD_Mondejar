@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, ActivityIndicator, RefreshControl } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFonts, Fredoka_400Regular, Fredoka_500Medium, Fredoka_600SemiBold, Fredoka_700Bold } from '@expo-google-fonts/fredoka';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useCallback } from 'react';
 import { useFocusEffect } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { subscribeToTaskChanges, emitTaskDataChanged } from '@/lib/data-events';
 import HeroCard from '@/components/index_components/hero-card';
 import OtherTasks, { OtherTasksHeader } from '@/components/index_components/other-tasks';
 import DailyHabits from '@/components/index_components/daily-habits';
@@ -66,6 +67,9 @@ export default function HomeScreen() {
 	// Success toast feedback for daily habit completion.
 	const [toast, setToast] = useState<ToastData | null>(null);
 
+	// Pull-to-refresh state for the task queue.
+	const [refreshing, setRefreshing] = useState(false);
+
 	useEffect(() => {
 		if (fontsLoaded) {
 			SplashScreen.hideAsync();
@@ -96,28 +100,35 @@ export default function HomeScreen() {
 		});
 	}, [sortCriteria]);
 
-	// Load the pending task queue from Supabase whenever the screen gains focus
-	// (so newly created tasks appear after the Add modal closes).
+	// Refetch the pending task queue from Supabase (source of truth). Used on
+	// focus, on pull-to-refresh, and when another screen changes task data.
+	const refreshTasks = useCallback(() => {
+		return fetchPendingTaskQueue()
+			.then((tasks) => {
+				setTaskQueue(tasks as HomeTask[]);
+			})
+			.catch((err) => {
+				console.error('Failed to load task queue:', err);
+			})
+			.finally(() => {
+				setTasksLoading(false);
+			});
+	}, []);
+
+	// Load the pending task queue whenever the screen gains focus.
 	useFocusEffect(
 		useCallback(() => {
-			let active = true;
-
-			fetchPendingTaskQueue()
-				.then((tasks) => {
-					if (active) setTaskQueue(tasks);
-				})
-				.catch((err) => {
-					console.error('Failed to load task queue:', err);
-				})
-				.finally(() => {
-					if (active) setTasksLoading(false);
-				});
-
-			return () => {
-				active = false;
-			};
-		}, [])
+			refreshTasks();
+		}, [refreshTasks])
 	);
+
+	// Refetch whenever another screen mutates task data, so Home stays in sync.
+	useEffect(() => {
+		const unsubscribe = subscribeToTaskChanges(() => {
+			refreshTasks();
+		});
+		return unsubscribe;
+	}, [refreshTasks]);
 
 	// Load today's habits from Supabase whenever the screen gains focus.
 	useFocusEffect(
@@ -160,6 +171,8 @@ export default function HomeScreen() {
 			.then(() => {
 				// Remove the completed task; the next pending task becomes the Hero.
 				setTaskQueue((prev) => prev.filter((t) => t.id !== task.id));
+				// Notify other screens (Wins/Calendar) to refetch their data.
+				emitTaskDataChanged();
 			})
 			.catch((err) => {
 				console.error('Failed to complete hero task:', err);
@@ -174,6 +187,8 @@ export default function HomeScreen() {
 				// Remove it from the Other Tasks queue, preserving the order of
 				// the remaining tasks.
 				setTaskQueue((prev) => prev.filter((t) => t.id !== task.id));
+				// Notify other screens (Wins/Calendar) to refetch their data.
+				emitTaskDataChanged();
 			})
 			.catch((err) => {
 				console.error('Failed to complete task:', err);
@@ -198,6 +213,7 @@ export default function HomeScreen() {
 				// queue reflects the new hero + the previous hero rejoins it.
 				return fetchPendingTaskQueue().then((tasks) => {
 					setTaskQueue(tasks as HomeTask[]);
+					emitTaskDataChanged();
 				});
 			})
 			.catch((err) => {
@@ -218,11 +234,25 @@ export default function HomeScreen() {
 						.map((id) => prev.find((t) => t.id === id))
 						.filter((t): t is HomeTask => !!t)
 				);
+				emitTaskDataChanged();
 			})
 			.catch((err) => {
 				console.error('Failed to reorder tasks:', err);
 			});
 	};
+
+	// Pull-to-refresh: refetch tasks + habits, guarding against duplicate runs.
+	const handleRefresh = useCallback(() => {
+		if (refreshing) return;
+		setRefreshing(true);
+		Promise.all([refreshTasks(), fetchTodayHabits().then(setHabits)])
+			.catch((err) => {
+				console.error('Failed to refresh Home:', err);
+			})
+			.finally(() => {
+				setRefreshing(false);
+			});
+	}, [refreshing, refreshTasks]);
 
 	const handleToggleHabit = (habit: HabitData) => {
 		// Persist completion through the `habit_logs` table (database-backed).
@@ -294,6 +324,9 @@ export default function HomeScreen() {
 				showsVerticalScrollIndicator={false}
 				// scrollEnabled={otherTasksExpanded}
 				contentContainerStyle={{ paddingBottom: 120 }}
+				refreshControl={
+					<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#6B8E70" />
+				}
 			>
 				{/* Other tasks — stacked queue preview with expand/collapse */}
 				{!tasksLoading && (
