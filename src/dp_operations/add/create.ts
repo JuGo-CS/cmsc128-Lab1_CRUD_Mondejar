@@ -40,10 +40,30 @@ function nowTimeString(): string {
 /**
  * Create a new task in the `tasks` table.
  *
- * New tasks start as `pending` and are not the focus task (`is_focus` = false).
+ * New tasks start as `pending`, are not the focus task (`is_focus` = false),
+ * and are appended to the end of the queue by assigning the next `position`.
  * The `created_at` timestamp is set by the database default.
  */
 export async function createTask(input: CreateTaskInput): Promise<void> {
+    // Determine the next queue position so the new task is appended without
+    // creating a gap or conflicting with existing positions.
+    const { data: posRows, error: posError } = await supabase
+        .from('tasks')
+        .select('position')
+        .eq('status', 'pending')
+        .not('position', 'is', null);
+
+    if (posError) {
+        console.error('Failed to read task positions:', posError.message);
+        throw posError;
+    }
+
+    const maxPosition = (posRows ?? []).reduce(
+        (max, r) => Math.max(max, (r as { position: number }).position),
+        0
+    );
+    const nextPosition = (posRows ?? []).length > 0 ? maxPosition + 1 : 0;
+
     const { error } = await supabase.from('tasks').insert({
         title: input.title,
         description: input.description,
@@ -52,6 +72,7 @@ export async function createTask(input: CreateTaskInput): Promise<void> {
         is_focus: false,
         deadline: input.deadline,
         priority: input.priority,
+        position: nextPosition,
     });
 
     if (error) {

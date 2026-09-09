@@ -253,10 +253,14 @@ export default function HomeScreen() {
 	// Undo a task deletion: restore the deleted task and refresh the UI.
 	const undoTaskDeletion = (task: HomeTask) => {
 		restoreTask(task)
-			.then(() => refreshTasks())
-			.then(() => {
-				setToast({ message: 'Task restored.' });
-				emitTaskDataChanged();
+			.then(() => fetchPendingTaskQueue())
+			.then((tasks) => {
+				const nextQueue = tasks as HomeTask[];
+				setTaskQueue(nextQueue);
+				return syncPositions(nextQueue, sortCriteria).then(() => {
+					setToast({ message: 'Task restored.' });
+					emitTaskDataChanged();
+				});
 			})
 			.catch((err) => {
 				console.error('Failed to undo task deletion:', err);
@@ -421,8 +425,14 @@ export default function HomeScreen() {
 					undoLabel: 'Undo',
 					onUndo: () => undoTaskEdit(snapshot),
 				});
-				return refreshTasks().then(() => {
-					emitTaskDataChanged();
+				// Refetch the queue, then re-sync positions so a status change
+				// (e.g. completed → pending) keeps the global order consistent.
+				return fetchPendingTaskQueue().then((tasks) => {
+					const nextQueue = tasks as HomeTask[];
+					setTaskQueue(nextQueue);
+					return syncPositions(nextQueue, sortCriteria).then(() => {
+						emitTaskDataChanged();
+					});
 				});
 			})
 			.catch((err) => {
@@ -436,10 +446,14 @@ export default function HomeScreen() {
 	// Undo a task edit: restore the pre-edit snapshot and refresh the UI.
 	const undoTaskEdit = (snapshot: TaskSnapshot) => {
 		restoreTaskSnapshot(snapshot)
-			.then(() => refreshTasks())
-			.then(() => {
-				setToast({ message: 'Task restored.' });
-				emitTaskDataChanged();
+			.then(() => fetchPendingTaskQueue())
+			.then((tasks) => {
+				const nextQueue = tasks as HomeTask[];
+				setTaskQueue(nextQueue);
+				return syncPositions(nextQueue, sortCriteria).then(() => {
+					setToast({ message: 'Task restored.' });
+					emitTaskDataChanged();
+				});
 			})
 			.catch((err) => {
 				console.error('Failed to undo task edit:', err);

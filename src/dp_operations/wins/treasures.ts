@@ -1,6 +1,20 @@
 import { supabase } from '../../lib/supabase';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
+/** Today's date as `YYYY-MM-DD` in local time, matching `completed_date`. */
+function todayDateString(): string {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
+/** Current time as `HH:MM:SS` in local time, matching `completed_time`. */
+function nowTimeString(): string {
+    return new Date().toTimeString().slice(0, 8);
+}
+
 /**
  * A single completed task log ("Treasure") shown in the Wins screen.
  * This is the UI-facing shape — the backend supplies these from the `tasks` table.
@@ -230,6 +244,10 @@ export async function restoreTreasure(log: TreasureLog): Promise<void> {
         description: log.description,
         status: 'completed',
         is_focus: false,
+        priority: log.priority,
+        deadline: log.deadline,
+        position: log.position,
+        created_at: log.createdAt,
         completed_date: log.completedDate || null,
         completed_time: log.completedTime || null,
     });
@@ -291,14 +309,52 @@ export async function updateTreasure(
 
     if (payload.status === 'pending') {
         // Revert to pending: clear completion metadata and unset focus so the
-        // task rejoins the queue as a non-focus pending task.
+        // task rejoins the queue as a non-focus pending task. Assign the next
+        // position so it appends cleanly without a gap or conflict.
+        const { data: posRows, error: posError } = await supabase
+            .from('tasks')
+            .select('position')
+            .eq('status', 'pending')
+            .not('position', 'is', null);
+
+        if (posError) {
+            console.error('Failed to read task positions:', posError.message);
+            throw posError;
+        }
+
+        const maxPosition = (posRows ?? []).reduce(
+            (max, r) => Math.max(max, (r as { position: number }).position),
+            0
+        );
+        const nextPosition = (posRows ?? []).length > 0 ? maxPosition + 1 : 0;
+
         update.status = 'pending';
         update.completed_date = null;
         update.completed_time = null;
         update.is_focus = false;
+        update.position = nextPosition;
     } else {
-        // Keep completed but reflect any edited fields.
         update.status = 'completed';
+
+        // Only stamp a completion date/time when the task was NOT already
+        // completed — editing an existing completed task must not change its
+        // original completion timestamp.
+        const { data, error: fetchError } = await supabase
+            .from('tasks')
+            .select('status')
+            .eq('task_id', taskId)
+            .maybeSingle();
+
+        if (fetchError) {
+            console.error('Failed to read task status:', fetchError.message);
+            throw fetchError;
+        }
+
+        const wasCompleted = data?.status === 'completed';
+        if (!wasCompleted) {
+            update.completed_date = todayDateString();
+            update.completed_time = nowTimeString();
+        }
     }
 
     const { error } = await supabase
