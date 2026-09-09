@@ -51,14 +51,21 @@ export default function AddModal({ visible, onClose, onSaved }: AddModalProps) {
     const [error, setError] = useState<string | null>(null);
     const [titleError, setTitleError] = useState<string | null>(null);
 
-    // Fetch categories when the modal opens.
+    // Fetch categories when the modal opens, preselecting the first one so the
+    // user doesn't have to manually choose before saving.
     useEffect(() => {
         if (!visible) return;
         // Lazy import to avoid a circular dependency risk; categories come from
         // the wins treasures operations.
         import('@/dp_operations/wins/treasures')
             .then((mod) => mod.fetchCategories())
-            .then((data) => setCategories(data))
+            .then((data) => {
+                setCategories(data);
+                // Preselect the first category as the default (if none selected yet).
+                if (data.length > 0 && catId === null) {
+                    setCatId(data[0].cat_id);
+                }
+            })
             .catch((err) => console.error('Failed to load categories:', err));
     }, [visible]);
 
