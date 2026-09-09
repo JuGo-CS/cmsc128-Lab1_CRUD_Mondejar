@@ -104,7 +104,7 @@ export default function CalendarTaskCard({
                 <TouchableOpacity
                     onPress={() => setShowActions((prev) => !prev)}
                     activeOpacity={0.8}
-                    className="bg-cardBg rounded-2xl overflow-hidden border border-white/50"
+                    className="rounded-2xl overflow-hidden border border-white/50"
                 >
                     <View className="flex-row items-center px-4 py-3 bg-habitCard">
                         <View className="bg-taskStack/40 rounded-lg p-2 mr-3">
@@ -165,7 +165,7 @@ export default function CalendarTaskCard({
             <TouchableOpacity
                 onPress={() => onToggle?.(task)}
                 activeOpacity={0.8}
-                className="flex-row items-center px-4 py-3 bg-habitCard"
+                className="flex-row items-center px-4 py-3 bg-habitCard rounded-2xl z-20"
             >
                 <View className="bg-taskStack/40 rounded-lg p-2 mr-3">
                     <Ionicons name={task.iconName} size={20} color="#7D6E6B" />
@@ -187,23 +187,24 @@ export default function CalendarTaskCard({
             <TouchableOpacity
                 onPress={() => setExpanded((prev) => !prev)}
                 activeOpacity={0.8}
-                className="flex-row items-center justify-between px-4 py-2"
+                className="flex-row justify-between px-4 py-3 -mt-3 z-10 rounded-b-2xl"
                 style={{ backgroundColor: bg }}
             >
-                <Text numberOfLines={1} className="flex-1 text-base font-fredoka-semibold text-deepBrown">
+                <Text numberOfLines={1} className="flex-1 text-base font-fredoka-semibold text-deepBrown -bottom-1">
                     {detail}
                 </Text>
                 <Ionicons
                     name={expanded ? 'chevron-up' : 'chevron-down'}
                     size={18}
                     color="#3D2E2B"
+                    className='-bottom-1'
                 />
             </TouchableOpacity>
 
             {/* Expanded details */}
             {expanded && (
-                <View className="px-4 py-3 bg-habitCard border-t border-white/50">
-                    <Text className="text-sm font-fredoka text-mutedBrown">
+                <View className="px-4 py-3 bg-habitCard border-t border-white/50 -mt-3 z-0">
+                    <Text className="text-sm font-fredoka text-mutedBrown -bottom-1">
                         {task.description || 'No description.'}
                     </Text>
                 </View>
