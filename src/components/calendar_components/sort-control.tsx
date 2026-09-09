@@ -13,6 +13,7 @@ interface SortControlProps {
 // Human-readable label for each sort criterion.
 const CRITERIA_LABELS: Record<SortCriteria, string> = {
     priority: 'Priority',
+    deadline: 'Deadline',
     category: 'Category',
     createdAt: 'Time added',
 };
@@ -69,14 +70,13 @@ export default function SortControl({
                     >
                         {/* Header Section */}
                         <View className="flex-row items-center justify-between mb-3 px-1">
-                            <Text className="text-lg font-fredoka-bold text-deepBrown tracking-wide">
-                                Sort by
+                            <Text className="text-2xl font-fredoka-semibold text-deepBrown tracking-wide">
+                                Sort by:
                             </Text>
-                            <Ionicons name="swap-vertical" size={20} color="#7D6E6B" />
                         </View>
 
                         {/* Subtle Divider Line */}
-                        <View className="h-[1px] bg-deepBrown/10 mb-3" />
+                        <View className="h-[3px] bg-deepBrown/10 mb-3" />
 
                         {/* Options List */}
                         <View className="gap-y-4">
@@ -90,7 +90,7 @@ export default function SortControl({
                                             setMenuVisible(false);
                                         }}
                                         activeOpacity={0.7}
-                                        className={`flex-row items-center justify-between py-4 px-4 rounded-2xl transition-all ${
+                                        className={`flex-row items-center justify-between py-4 pl-11 rounded-2xl transition-all ${
                                             selected 
                                                 ? 'bg-focusHero/15 border border-focusHero/20' 
                                                 : 'bg-transparent'

@@ -7,6 +7,7 @@ import CalendarTaskCard from '@/components/calendar_components/calendar-task-car
 import SortControl from '@/components/calendar_components/sort-control';
 import EditTreasureModal from '@/components/wins_components/edit-treasure-modal';
 import DeleteTreasureModal from '@/components/wins_components/delete-treasure-modal';
+import WinsCalendarModal from '@/components/wins_components/wins-calendar-modal';
 import { fetchTasksForDate, CalendarTask, SortCriteria, sortTasks } from '@/dp_operations/calendar/tasks';
 import { completeTask } from '@/dp_operations/home/tasks';
 import { fetchCategories, updateTreasure, deleteTreasure, Category, TreasureLog } from '@/dp_operations/wins/treasures';
@@ -26,9 +27,14 @@ function toTreasureLog(task: CalendarTask): TreasureLog {
     };
 }
 
-// Temporary/hardcoded selected date for this scenario.
-// A real calendar will later supply this value without a rewrite.
-const SELECTED_DATE = '2026-09-12';
+/** Today's date as `YYYY-MM-DD` in local time (default selected date). */
+function todayDateString(): string {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
 
 /** Format a `YYYY-MM-DD` date into "September 12" style label. */
 function formatDateLabel(dateStr: string): string {
@@ -53,6 +59,8 @@ export default function CalendarScreen() {
     const [criteria, setCriteria] = useState<SortCriteria>('priority');
     const [ascending, setAscending] = useState(true);
     const [editMode, setEditMode] = useState(false);
+    const [selectedDate, setSelectedDate] = useState<string>(todayDateString());
+    const [calendarVisible, setCalendarVisible] = useState(false);
 
     // Edit / delete modal state (reuses the Wins tab flow).
     const [editingTask, setEditingTask] = useState<CalendarTask | null>(null);
@@ -72,7 +80,8 @@ export default function CalendarScreen() {
     // Fetch the tasks applicable to the selected date + categories.
     useEffect(() => {
         let isMounted = true;
-        fetchTasksForDate(SELECTED_DATE)
+        setLoading(true);
+        fetchTasksForDate(selectedDate)
             .then((data) => {
                 if (isMounted) {
                     setTasks(data);
@@ -87,6 +96,14 @@ export default function CalendarScreen() {
                 }
             });
 
+        return () => {
+            isMounted = false;
+        };
+    }, [selectedDate]);
+
+    // Fetch categories once on mount (for the edit modal).
+    useEffect(() => {
+        let isMounted = true;
         fetchCategories()
             .then((data) => {
                 if (isMounted) {
@@ -96,7 +113,6 @@ export default function CalendarScreen() {
             .catch((err) => {
                 console.error('Failed to load categories:', err);
             });
-
         return () => {
             isMounted = false;
         };
@@ -132,7 +148,7 @@ export default function CalendarScreen() {
             .then(() => {
                 setEditModalVisible(false);
                 setEditingTask(null);
-                return fetchTasksForDate(SELECTED_DATE).then((data) => {
+                return fetchTasksForDate(selectedDate).then((data) => {
                     setTasks(data);
                 });
             })
@@ -200,10 +216,16 @@ export default function CalendarScreen() {
                             In your Queue
                         </Text>
                         <Text className="text-base font-fredoka text-mutedBrown mt-1">
-                            For today, {formatDateLabel(SELECTED_DATE)}.
+                            For {formatDateLabel(selectedDate)}.
                         </Text>
                     </View>
-                    <Ionicons name="calendar" size={40} color="#6B8E70" />
+                    <TouchableOpacity
+                        onPress={() => setCalendarVisible(true)}
+                        activeOpacity={0.7}
+                        className="p-1"
+                    >
+                        <Ionicons name="calendar" size={40} color="#6B8E70" />
+                    </TouchableOpacity>
                 </View>
 
                 {/* Sort control header */}
@@ -274,6 +296,17 @@ export default function CalendarScreen() {
                 }}
                 onConfirmDelete={(log) => handleConfirmDelete(deletingTask!)}
                 deleting={deleting}
+            />
+
+            {/* Calendar date-selection modal (reused from Wins) */}
+            <WinsCalendarModal
+                visible={calendarVisible}
+                onClose={() => setCalendarVisible(false)}
+                onSelectDate={(date) => {
+                    setSelectedDate(date);
+                    setCalendarVisible(false);
+                }}
+                selectedDate={selectedDate}
             />
         </View>
     );
