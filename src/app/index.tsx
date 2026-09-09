@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { View, Text, ScrollView, ActivityIndicator } from 'react-native';
 import { useFonts, Fredoka_400Regular, Fredoka_500Medium, Fredoka_600SemiBold, Fredoka_700Bold } from '@expo-google-fonts/fredoka';
 import * as SplashScreen from 'expo-splash-screen';
-import { useEffect } from 'react';
+import { useEffect, useCallback } from 'react';
+import { useFocusEffect } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import HeroCard from '@/components/index_components/hero-card';
 import OtherTasks, { OtherTasksHeader } from '@/components/index_components/other-tasks';
@@ -38,45 +39,50 @@ export default function HomeScreen() {
 		}
 	}, [fontsLoaded]);
 
-	// Load the pending task queue from Supabase on mount.
-	useEffect(() => {
-		let active = true;
+	// Load the pending task queue from Supabase whenever the screen gains focus
+	// (so newly created tasks appear after the Add modal closes).
+	useFocusEffect(
+		useCallback(() => {
+			let active = true;
 
-		fetchPendingTaskQueue()
-			.then((tasks) => {
-				if (active) setTaskQueue(tasks);
-			})
-			.catch((err) => {
-				console.error('Failed to load task queue:', err);
-			})
-			.finally(() => {
-				if (active) setTasksLoading(false);
-			});
+			fetchPendingTaskQueue()
+				.then((tasks) => {
+					if (active) setTaskQueue(tasks);
+				})
+				.catch((err) => {
+					console.error('Failed to load task queue:', err);
+				})
+				.finally(() => {
+					if (active) setTasksLoading(false);
+				});
 
-		return () => {
-			active = false;
-		};
-	}, []);
+			return () => {
+				active = false;
+			};
+		}, [])
+	);
 
-	// Load today's habits from Supabase on mount.
-	useEffect(() => {
-		let active = true;
+	// Load today's habits from Supabase whenever the screen gains focus.
+	useFocusEffect(
+		useCallback(() => {
+			let active = true;
 
-		fetchTodayHabits()
-			.then((habitsData) => {
-				if (active) setHabits(habitsData);
-			})
-			.catch((err) => {
-				console.error('Failed to load habits:', err);
-			})
-			.finally(() => {
-				if (active) setHabitsLoading(false);
-			});
+			fetchTodayHabits()
+				.then((habitsData) => {
+					if (active) setHabits(habitsData);
+				})
+				.catch((err) => {
+					console.error('Failed to load habits:', err);
+				})
+				.finally(() => {
+					if (active) setHabitsLoading(false);
+				});
 
-		return () => {
-			active = false;
-		};
-	}, []);
+			return () => {
+				active = false;
+			};
+		}, [])
+	);
 
 	if (!fontsLoaded) {
 		return null;

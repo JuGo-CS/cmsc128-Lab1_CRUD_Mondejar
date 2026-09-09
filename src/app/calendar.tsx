@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
 import { useFonts, Fredoka_400Regular, Fredoka_500Medium, Fredoka_600SemiBold, Fredoka_700Bold } from '@expo-google-fonts/fredoka';
 import * as SplashScreen from 'expo-splash-screen';
+import { useFocusEffect } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import CalendarTaskCard from '@/components/calendar_components/calendar-task-card';
 import SortControl from '@/components/calendar_components/sort-control';
@@ -77,29 +78,32 @@ export default function CalendarScreen() {
         }
     }, [fontsLoaded]);
 
-    // Fetch the tasks applicable to the selected date + categories.
-    useEffect(() => {
-        let isMounted = true;
-        setLoading(true);
-        fetchTasksForDate(selectedDate)
-            .then((data) => {
-                if (isMounted) {
-                    setTasks(data);
-                }
-            })
-            .catch((err) => {
-                console.error('Failed to load tasks for date:', err);
-            })
-            .finally(() => {
-                if (isMounted) {
-                    setLoading(false);
-                }
-            });
+    // Fetch the tasks applicable to the selected date. Refetches whenever the
+    // screen gains focus so newly created tasks appear after the Add modal closes.
+    useFocusEffect(
+        useCallback(() => {
+            let isMounted = true;
+            setLoading(true);
+            fetchTasksForDate(selectedDate)
+                .then((data) => {
+                    if (isMounted) {
+                        setTasks(data);
+                    }
+                })
+                .catch((err) => {
+                    console.error('Failed to load tasks for date:', err);
+                })
+                .finally(() => {
+                    if (isMounted) {
+                        setLoading(false);
+                    }
+                });
 
-        return () => {
-            isMounted = false;
-        };
-    }, [selectedDate]);
+            return () => {
+                isMounted = false;
+            };
+        }, [selectedDate])
+    );
 
     // Fetch categories once on mount (for the edit modal).
     useEffect(() => {
