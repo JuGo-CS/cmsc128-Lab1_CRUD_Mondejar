@@ -12,6 +12,7 @@ import EditTreasureModal from '@/components/wins_components/edit-treasure-modal'
 import DeleteTreasureModal from '@/components/wins_components/delete-treasure-modal';
 import Toast, { ToastData } from '@/components/ui/toast';
 import { fetchTreasureGroups, TreasureGroup, TreasureLog, deleteTreasure, fetchCategories, updateTreasure, restoreTreasure, Category } from '@/dp_operations/wins/treasures';
+import { restoreTaskSnapshot, TaskSnapshot } from '@/dp_operations/home/tasks';
 
 // Placeholder treasure groups used when the database fetch hasn't loaded yet.
 // Replace with real data once the backend is fully wired.
@@ -30,6 +31,9 @@ const PLACEHOLDER_GROUPS: TreasureGroup[] = [
                 completedTime: '14:30:00',
                 status: 'completed',
                 deadline: null,
+                priority: 'medium',
+                position: 0,
+                createdAt: '2026-09-01T00:00:00.000Z',
             },
             { 
                 id: 't-2', 
@@ -41,6 +45,9 @@ const PLACEHOLDER_GROUPS: TreasureGroup[] = [
                 completedTime: '14:30:00',
                 status: 'completed',
                 deadline: null,
+                priority: 'medium',
+                position: 1,
+                createdAt: '2026-09-01T00:00:00.000Z',
             },
             { 
                 id: 't-3', 
@@ -52,6 +59,9 @@ const PLACEHOLDER_GROUPS: TreasureGroup[] = [
                 completedTime: '14:30:00',
                 status: 'completed',
                 deadline: null,
+                priority: 'medium',
+                position: 2,
+                createdAt: '2026-09-01T00:00:00.000Z',
             },
         ],
     },
@@ -69,6 +79,9 @@ const PLACEHOLDER_GROUPS: TreasureGroup[] = [
                 completedTime: '14:30:00',
                 status: 'completed',
                 deadline: null,
+                priority: 'medium',
+                position: 0,
+                createdAt: '2026-09-01T00:00:00.000Z',
             },
             { 
                 id: 't-5', 
@@ -80,6 +93,9 @@ const PLACEHOLDER_GROUPS: TreasureGroup[] = [
                 completedTime: '14:30:00',
                 status: 'completed',
                 deadline: null,
+                priority: 'medium',
+                position: 1,
+                createdAt: '2026-09-01T00:00:00.000Z',
             },
         ],
     },
@@ -182,12 +198,43 @@ export default function WinsScreen() {
         deadline: string | null;
     }) => {
         if (!editingLog) return;
+        // Capture the task's full state before the edit so Undo can restore it.
+        const snapshot: TaskSnapshot = {
+            id: editingLog.id,
+            title: editingLog.title,
+            description: editingLog.description,
+            catId: editingLog.catId,
+            priority: editingLog.priority,
+            deadline: editingLog.deadline,
+            status: editingLog.status,
+            isFocus: false,
+            position: editingLog.position,
+            completedDate: editingLog.completedDate || null,
+            completedTime: editingLog.completedTime || null,
+            createdAt: editingLog.createdAt,
+        };
         setSaving(true);
         updateTreasure(editingLog.id, payload)
             .then(() => {
                 setEditModalVisible(false);
                 setEditingLog(null);
-                setToast({ message: 'Treasure updated!' });
+                setToast({
+                    message: 'Treasure updated!',
+                    undoLabel: 'Undo',
+                    onUndo: () => {
+                        restoreTaskSnapshot(snapshot)
+                            .then(() => fetchTreasureGroups())
+                            .then((data) => {
+                                setGroups(data);
+                                setToast({ message: 'Treasure restored.' });
+                                emitTaskDataChanged();
+                            })
+                            .catch((err) => {
+                                console.error('Failed to undo treasure edit:', err);
+                                setToast({ message: 'Could not undo. Please try again.' });
+                            });
+                    },
+                });
                 // Refresh the logbook so changes are immediately reflected.
                 return fetchTreasureGroups().then((data) => {
                     setGroups(data);

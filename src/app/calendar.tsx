@@ -12,7 +12,7 @@ import EditTreasureModal from '@/components/wins_components/edit-treasure-modal'
 import DeleteTreasureModal from '@/components/wins_components/delete-treasure-modal';
 import WinsCalendarModal from '@/components/wins_components/wins-calendar-modal';
 import Toast, { ToastData } from '@/components/ui/toast';
-import { fetchPendingTaskQueue, sortHomeTasks, restoreTask, HomeTask, HomeSortCriteria } from '@/dp_operations/home/tasks';
+import { fetchPendingTaskQueue, sortHomeTasks, restoreTask, restoreTaskSnapshot, homeTaskToSnapshot, TaskSnapshot, HomeTask, HomeSortCriteria } from '@/dp_operations/home/tasks';
 import { filterTasksByDate, filterTasks, CalendarFilterCriteria } from '@/dp_operations/calendar/tasks';
 import { completeTask } from '@/dp_operations/home/tasks';
 import { fetchCategories, updateTreasure, deleteTreasure, Category, TreasureLog } from '@/dp_operations/wins/treasures';
@@ -29,11 +29,13 @@ function toTreasureLog(task: HomeTask): TreasureLog {
         iconName: task.iconName,
         status: task.completed ? 'completed' : 'pending',
         deadline: task.deadline,
+        priority: task.priority,
+        position: task.position,
+        createdAt: task.createdAt,
         completedDate: '',
         completedTime: '',
     };
 }
-
 
 /** Today's date as `YYYY-MM-DD` in local time (default selected date). */
 function todayDateString(): string {
@@ -177,12 +179,29 @@ export default function CalendarScreen() {
         deadline: string | null;
     }) => {
         if (!editingTask) return;
+        // Capture the task's full state before the edit so Undo can restore it.
+        const snapshot = homeTaskToSnapshot(editingTask);
         setSaving(true);
         updateTreasure(editingTask.id, payload)
             .then(() => {
                 setEditModalVisible(false);
                 setEditingTask(null);
-                setToast({ message: 'Task updated!' });
+                setToast({
+                    message: 'Task updated!',
+                    undoLabel: 'Undo',
+                    onUndo: () => {
+                        restoreTaskSnapshot(snapshot)
+                            .then(() => refreshTasks())
+                            .then(() => {
+                                setToast({ message: 'Task restored.' });
+                                emitTaskDataChanged();
+                            })
+                            .catch((err) => {
+                                console.error('Failed to undo task edit:', err);
+                                setToast({ message: 'Could not undo. Please try again.' });
+                            });
+                    },
+                });
                 return refreshTasks().then(() => {
                     emitTaskDataChanged();
                 });

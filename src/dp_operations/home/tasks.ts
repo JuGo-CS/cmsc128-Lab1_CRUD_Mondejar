@@ -478,3 +478,68 @@ export async function restoreTask(task: HomeTask): Promise<void> {
         throw error;
     }
 }
+
+/**
+ * A full snapshot of a task's persisted state, captured before an edit so Undo
+ * can restore the exact previous values (rather than reversing individual
+ * fields). Covers every field the edit form can change.
+ */
+export interface TaskSnapshot {
+    id: string;
+    title: string;
+    description: string | null;
+    catId: string | null;
+    priority: string | null;
+    deadline: string | null;
+    status: string;
+    isFocus: boolean;
+    position: number | null;
+    completedDate: string | null;
+    completedTime: string | null;
+    createdAt: string;
+}
+
+/** Build a snapshot from a pending `HomeTask` (used by Home/Calendar edits). */
+export function homeTaskToSnapshot(task: HomeTask): TaskSnapshot {
+    return {
+        id: task.id,
+        title: task.title,
+        description: task.description,
+        catId: task.catId,
+        priority: task.priority,
+        deadline: task.deadline,
+        status: task.completed ? 'completed' : 'pending',
+        isFocus: task.isFocus,
+        position: task.position,
+        completedDate: null,
+        completedTime: null,
+        createdAt: task.createdAt,
+    };
+}
+
+/**
+ * Restore a task to a previously captured snapshot. Used to undo an edit.
+ * Re-applies every persisted field exactly as it was before the edit.
+ */
+export async function restoreTaskSnapshot(snapshot: TaskSnapshot): Promise<void> {
+    const { error } = await supabase
+        .from('tasks')
+        .update({
+            title: snapshot.title,
+            description: snapshot.description,
+            cat_id: snapshot.catId,
+            priority: snapshot.priority,
+            deadline: snapshot.deadline,
+            status: snapshot.status,
+            is_focus: snapshot.isFocus,
+            position: snapshot.position,
+            completed_date: snapshot.completedDate,
+            completed_time: snapshot.completedTime,
+        })
+        .eq('task_id', snapshot.id);
+
+    if (error) {
+        console.error('Failed to restore task snapshot:', error.message);
+        throw error;
+    }
+}

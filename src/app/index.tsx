@@ -23,6 +23,9 @@ import {
     sortHomeTasks,
     undoCompleteTask,
     restoreTask,
+    restoreTaskSnapshot,
+    homeTaskToSnapshot,
+    TaskSnapshot,
     HomeTask,
     HomeSortCriteria,
 } from '@/dp_operations/home/tasks';
@@ -41,6 +44,9 @@ function toTreasureLog(task: HomeTask): TreasureLog {
         iconName: task.iconName,
         status: task.completed ? 'completed' : 'pending',
         deadline: task.deadline,
+        priority: task.priority,
+        position: task.position,
+        createdAt: task.createdAt,
         completedDate: '',
         completedTime: '',
     };
@@ -403,12 +409,18 @@ export default function HomeScreen() {
 		deadline: string | null;
 	}) => {
 		if (!editingTask) return;
+		// Capture the task's full state before the edit so Undo can restore it.
+		const snapshot = homeTaskToSnapshot(editingTask);
 		setSaving(true);
 		updateTreasure(editingTask.id, payload)
 			.then(() => {
 				setEditModalVisible(false);
 				setEditingTask(null);
-				setToast({ message: 'Task updated!' });
+				setToast({
+					message: 'Task updated!',
+					undoLabel: 'Undo',
+					onUndo: () => undoTaskEdit(snapshot),
+				});
 				return refreshTasks().then(() => {
 					emitTaskDataChanged();
 				});
@@ -418,6 +430,20 @@ export default function HomeScreen() {
 			})
 			.finally(() => {
 				setSaving(false);
+			});
+	};
+
+	// Undo a task edit: restore the pre-edit snapshot and refresh the UI.
+	const undoTaskEdit = (snapshot: TaskSnapshot) => {
+		restoreTaskSnapshot(snapshot)
+			.then(() => refreshTasks())
+			.then(() => {
+				setToast({ message: 'Task restored.' });
+				emitTaskDataChanged();
+			})
+			.catch((err) => {
+				console.error('Failed to undo task edit:', err);
+				setToast({ message: 'Could not undo. Please try again.' });
 			});
 	};
 

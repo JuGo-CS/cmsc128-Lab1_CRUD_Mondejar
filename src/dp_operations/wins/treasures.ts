@@ -15,6 +15,12 @@ export interface TreasureLog {
     status: 'completed' | 'pending';
     /** Deadline date as `YYYY-MM-DD`, or null if the task has no deadline. */
     deadline: string | null;
+    /** Priority from `tasks.priority`, or null. */
+    priority: string | null;
+    /** Manual order index, or null. */
+    position: number | null;
+    /** When the task was created, used for restoring. */
+    createdAt: string;
     /** Completion date as `YYYY-MM-DD` (matches `tasks.completed_date`). */
     completedDate: string;
     /** Completion time as `HH:MM:SS` (matches `tasks.completed_time`). */
@@ -64,7 +70,9 @@ interface CompletedTaskRow {
     title: string;
     description: string | null;
     status: string;
+    priority: string | null;
     deadline: string | null;
+    position: number | null;
     completed_date: string | null;
     completed_time: string | null;
     created_at: string;
@@ -123,6 +131,9 @@ function toTreasureLog(row: CompletedTaskRow): TreasureLog {
         iconName: iconForEmoji(row.categories?.emoji_holder),
         status: row.status === 'pending' ? 'pending' : 'completed',
         deadline: row.deadline ? row.deadline.slice(0, 10) : null,
+        priority: row.priority,
+        position: row.position,
+        createdAt: row.created_at,
         completedDate: row.completed_date ?? '',
         completedTime: row.completed_time ?? '',
     };
