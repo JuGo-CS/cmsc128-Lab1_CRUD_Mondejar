@@ -44,6 +44,15 @@ function toTreasureLog(task: HomeTask): TreasureLog {
     };
 }
 
+// Format a Date into the "Thursday, September 10" style label used on Home.
+function formatTodayLabel(date: Date): string {
+	return date.toLocaleDateString('en-US', {
+		weekday: 'long',
+		month: 'long',
+		day: 'numeric',
+	});
+}
+
 export default function HomeScreen() {
 	const [fontsLoaded] = useFonts({
 		Fredoka_400Regular,
@@ -51,6 +60,21 @@ export default function HomeScreen() {
 		Fredoka_600SemiBold,
 		Fredoka_700Bold,
 	});
+
+	// The current device date. Updated automatically when the day changes.
+	const [today, setToday] = useState(() => new Date());
+
+	// Refresh the date at the next midnight so it stays current even if the app
+	// stays open across a day change. Uses the device's local timezone.
+	useEffect(() => {
+		const now = new Date();
+		const nextMidnight = new Date(now);
+		nextMidnight.setHours(24, 0, 0, 0);
+		const timer = setTimeout(() => {
+			setToday(new Date());
+		}, nextMidnight.getTime() - now.getTime());
+		return () => clearTimeout(timer);
+	}, [today]);
 
 	// The ordered task queue. Index 0 is the current Hero Task.
 	// Loaded from the Supabase `tasks` table (status = 'pending').
@@ -403,9 +427,9 @@ export default function HomeScreen() {
 					</Text>
 					{/* Horizontal line underneath the heading */}
 					<View className="h-[2px] bg-deepBrown mt-2" />
-					{/* Date text (placeholder for now) */}
+					{/* Current device date */}
 					<Text className="text-lg text-mutedBrown mt-2">
-						Thursday, September 10
+						{formatTodayLabel(today)}
 					</Text>
 				</View>
 				{/* Sun icon in the top-right, slightly above the text */}
