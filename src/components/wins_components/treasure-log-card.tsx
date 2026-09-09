@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import TaskActions from '@/components/ui/task-actions';
 import { TreasureLog } from '@/dp_operations/wins/treasures';
 
 /** Format a `HH:MM:SS` time into a friendly label like "2:30 PM". */
@@ -55,28 +56,10 @@ export default function TreasureLogCard({ log, onEdit, onDelete }: TreasureLogCa
 
             {/* Edit / Delete actions revealed on tap */}
             {showActions && (
-                <View className="flex-row items-center justify-end mt-2">
-                    <TouchableOpacity
-                        onPress={() => onEdit?.(log)}
-                        activeOpacity={0.7}
-                        className="flex-row items-center px-3 py-2 rounded-xl bg-cardBg border border-white/50 mr-2"
-                    >
-                        <Ionicons name="create-outline" size={16} color="#7D6E6B" />
-                        <Text className="text-sm font-fredoka-semibold text-deepBrown ml-1">
-                            Edit
-                        </Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        onPress={() => onDelete?.(log)}
-                        activeOpacity={0.7}
-                        className="flex-row items-center px-3 py-2 rounded-xl bg-cardBg border border-white/50"
-                    >
-                        <Ionicons name="trash-outline" size={16} color="#C0392B" />
-                        <Text className="text-sm font-fredoka-semibold text-deepBrown ml-1">
-                            Delete
-                        </Text>
-                    </TouchableOpacity>
-                </View>
+                <TaskActions
+                    onEdit={() => onEdit?.(log)}
+                    onDelete={() => onDelete?.(log)}
+                />
             )}
         </View>
     );
