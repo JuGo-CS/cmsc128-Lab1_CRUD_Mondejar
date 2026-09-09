@@ -11,7 +11,7 @@ import WinsCalendarModal from '@/components/wins_components/wins-calendar-modal'
 import EditTreasureModal from '@/components/wins_components/edit-treasure-modal';
 import DeleteTreasureModal from '@/components/wins_components/delete-treasure-modal';
 import Toast, { ToastData } from '@/components/ui/toast';
-import { fetchTreasureGroups, TreasureGroup, TreasureLog, deleteTreasure, fetchCategories, updateTreasure, Category } from '@/dp_operations/wins/treasures';
+import { fetchTreasureGroups, TreasureGroup, TreasureLog, deleteTreasure, fetchCategories, updateTreasure, restoreTreasure, Category } from '@/dp_operations/wins/treasures';
 
 // Placeholder treasure groups used when the database fetch hasn't loaded yet.
 // Replace with real data once the backend is fully wired.
@@ -224,7 +224,23 @@ export default function WinsScreen() {
                 );
                 setDeleteModalVisible(false);
                 setDeletingLog(null);
-                setToast({ message: 'Treasure deleted.' });
+                setToast({
+                    message: 'Treasure deleted.',
+                    undoLabel: 'Undo',
+                    onUndo: () => {
+                        restoreTreasure(log)
+                            .then(() => fetchTreasureGroups())
+                            .then((data) => {
+                                setGroups(data);
+                                setToast({ message: 'Treasure restored.' });
+                                emitTaskDataChanged();
+                            })
+                            .catch((err) => {
+                                console.error('Failed to undo treasure deletion:', err);
+                                setToast({ message: 'Could not undo. Please try again.' });
+                            });
+                    },
+                });
                 emitTaskDataChanged();
             })
             .catch((err) => {

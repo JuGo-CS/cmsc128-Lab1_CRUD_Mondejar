@@ -209,33 +209,50 @@ export default function CalendarTaskCard({
 
             {/* Expanded details */}
             {expanded && (
-                <View className="px-4 pt-3 pb-4 bg-cardBg border-t border-white/50 -mt-3 z-0">
-                    {/* Description */}
-                    <Text className="text-sm font-fredoka text-deepBrown leading-relaxed">
-                        {task.description || 'No description.'}
-                    </Text>
+                <View className="px-4 pt-4 pb-5 bg-cardBg border-t border-deepBrown/10 rounded-b-2xl">
+    {/* Description Section */}
+    <View className="mb-4">
+        <Text className="text-xs font-fredoka-semibold text-mutedBrown uppercase tracking-wider mb-1">
+            Description
+        </Text>
+        <Text 
+            className={`text-sm font-fredoka ${
+                task.description ? 'text-deepBrown' : 'text-mutedBrown/70 italic'
+            } leading-relaxed`}
+            style={{ includeFontPadding: false }}
+        >
+            {task.description || 'No description provided.'}
+        </Text>
+    </View>
 
-                    {/* Subtle separator */}
-                    <View className="h-[1px] bg-deepBrown/10 my-3" />
+    {/* Details Grid Container */}
+    <View className="bg-habitCard/60 rounded-xl p-3.5 gap-y-3 border border-white/60">
+        {/* Status */}
+        <DetailRow
+            label="Status"
+            value={task.completed ? 'Completed' : 'Pending'}
+        />
 
-                    {/* Details grid */}
-                    <View className="gap-y-2.5">
-                        <DetailRow label="Status" value={task.completed ? 'Completed' : 'Pending'} />
-                        <DetailRow
-                            label="Category"
-                            value={task.categoryName ?? 'None'}
-                        />
-                        <DetailRow
-                            label="Deadline"
-                            value={task.deadline ? formatDeadline(task) : 'None'}
-                        />
-                        <DetailRow
-                            label="Priority"
-                            value={PRIORITY_STYLES[task.priority].label}
-                            accent={PRIORITY_STYLES[task.priority].bg}
-                        />
-                    </View>
-                </View>
+        {/* Category */}
+        <DetailRow
+            label="Category"
+            value={task.categoryName ?? 'None'}
+        />
+
+        {/* Deadline */}
+        <DetailRow
+            label="Deadline"
+            value={task.deadline ? formatDeadline(task) : 'None'}
+        />
+
+        {/* Priority */}
+        <DetailRow
+            label="Priority"
+            value={PRIORITY_STYLES[task.priority].label}
+            accent={PRIORITY_STYLES[task.priority].bg}
+        />
+    </View>
+</View>
             )}
         </View>
     );

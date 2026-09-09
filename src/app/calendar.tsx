@@ -12,7 +12,7 @@ import EditTreasureModal from '@/components/wins_components/edit-treasure-modal'
 import DeleteTreasureModal from '@/components/wins_components/delete-treasure-modal';
 import WinsCalendarModal from '@/components/wins_components/wins-calendar-modal';
 import Toast, { ToastData } from '@/components/ui/toast';
-import { fetchPendingTaskQueue, sortHomeTasks, HomeTask, HomeSortCriteria } from '@/dp_operations/home/tasks';
+import { fetchPendingTaskQueue, sortHomeTasks, restoreTask, HomeTask, HomeSortCriteria } from '@/dp_operations/home/tasks';
 import { filterTasksByDate, filterTasks, CalendarFilterCriteria } from '@/dp_operations/calendar/tasks';
 import { completeTask } from '@/dp_operations/home/tasks';
 import { fetchCategories, updateTreasure, deleteTreasure, Category, TreasureLog } from '@/dp_operations/wins/treasures';
@@ -209,7 +209,22 @@ export default function CalendarScreen() {
                 setTasks((prev) => prev.filter((t) => t.id !== task.id));
                 setDeleteModalVisible(false);
                 setDeletingTask(null);
-                setToast({ message: 'Task deleted.' });
+                setToast({
+                    message: 'Task deleted.',
+                    undoLabel: 'Undo',
+                    onUndo: () => {
+                        restoreTask(task)
+                            .then(() => refreshTasks())
+                            .then(() => {
+                                setToast({ message: 'Task restored.' });
+                                emitTaskDataChanged();
+                            })
+                            .catch((err) => {
+                                console.error('Failed to undo task deletion:', err);
+                                setToast({ message: 'Could not undo. Please try again.' });
+                            });
+                    },
+                });
                 emitTaskDataChanged();
             })
             .catch((err) => {

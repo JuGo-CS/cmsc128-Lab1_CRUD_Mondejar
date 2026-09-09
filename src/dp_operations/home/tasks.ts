@@ -405,3 +405,76 @@ export function sortHomeTasks(
 
     return [...hero, ...sortedOthers];
 }
+
+/**
+ * Undo a task completion by restoring it to the active queue.
+ *
+ * If the task was the Hero Task before completion, the task that was promoted
+ * in its place is demoted and this task becomes the Hero again. The task's
+ * completion metadata is cleared. Callers should re-sync positions afterward.
+ */
+export async function undoCompleteTask(taskId: string, wasHero: boolean): Promise<void> {
+    const restore: Record<string, unknown> = {
+        status: 'pending',
+        completed_date: null,
+        completed_time: null,
+    };
+
+    if (wasHero) {
+        // Demote the current Hero (the task that was promoted on completion)
+        // and make this task the Hero again.
+        const { data, error: fetchError } = await supabase
+            .from('tasks')
+            .select('task_id')
+            .eq('status', 'pending')
+            .eq('is_focus', true);
+
+        if (fetchError) {
+            console.error('Failed to load current hero for undo:', fetchError.message);
+            throw fetchError;
+        }
+
+        const currentHero = (data ?? [])[0]?.task_id;
+        if (currentHero && currentHero !== taskId) {
+            const { error: demoteError } = await supabase
+                .from('tasks')
+                .update({ is_focus: false })
+                .eq('task_id', currentHero);
+            if (demoteError) {
+                console.error('Failed to demote hero for undo:', demoteError.message);
+                throw demoteError;
+            }
+        }
+        restore.is_focus = true;
+    }
+
+    const { error } = await supabase.from('tasks').update(restore).eq('task_id', taskId);
+    if (error) {
+        console.error('Failed to undo task completion:', error.message);
+        throw error;
+    }
+}
+
+/**
+ * Restore a previously deleted task by re-inserting it with its original data
+ * and position. Used to undo a task deletion.
+ */
+export async function restoreTask(task: HomeTask): Promise<void> {
+    const { error } = await supabase.from('tasks').insert({
+        task_id: task.id,
+        cat_id: task.catId,
+        title: task.title,
+        description: task.description,
+        status: task.completed ? 'completed' : 'pending',
+        is_focus: task.isFocus,
+        priority: task.priority,
+        deadline: task.deadline,
+        created_at: task.createdAt,
+        position: task.position,
+    });
+
+    if (error) {
+        console.error('Failed to restore task:', error.message);
+        throw error;
+    }
+}

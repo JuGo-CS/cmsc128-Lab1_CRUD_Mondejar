@@ -21,10 +21,12 @@ import {
     setHeroTask,
     persistTaskPositions,
     sortHomeTasks,
+    undoCompleteTask,
+    restoreTask,
     HomeTask,
     HomeSortCriteria,
 } from '@/dp_operations/home/tasks';
-import { fetchTodayHabits, logHabitCompletion } from '@/dp_operations/home/habits';
+import { fetchTodayHabits, logHabitCompletion, undoHabitCompletion } from '@/dp_operations/home/habits';
 import { fetchCategories, updateTreasure, deleteTreasure, Category, TreasureLog } from '@/dp_operations/wins/treasures';
 
 // Map a HomeTask to the TreasureLog shape the Wins edit/delete modals expect.
@@ -223,10 +225,57 @@ export default function HomeScreen() {
 		);
 	}, []);
 
+	// Undo a task completion: restore it to the active queue, re-sync positions,
+	// and refresh the UI. Shows a success toast on success, an error toast on failure.
+	const undoTaskCompletion = (task: TaskItemData, wasHero: boolean) => {
+		undoCompleteTask(task.id, wasHero)
+			.then(() => fetchPendingTaskQueue())
+			.then((tasks) => {
+				const nextQueue = tasks as HomeTask[];
+				setTaskQueue(nextQueue);
+				return syncPositions(nextQueue, sortCriteria).then(() => {
+					setToast({ message: 'Task restored.' });
+					emitTaskDataChanged();
+				});
+			})
+			.catch((err) => {
+				console.error('Failed to undo task completion:', err);
+				setToast({ message: 'Could not undo. Please try again.' });
+			});
+	};
+
+	// Undo a task deletion: restore the deleted task and refresh the UI.
+	const undoTaskDeletion = (task: HomeTask) => {
+		restoreTask(task)
+			.then(() => refreshTasks())
+			.then(() => {
+				setToast({ message: 'Task restored.' });
+				emitTaskDataChanged();
+			})
+			.catch((err) => {
+				console.error('Failed to undo task deletion:', err);
+				setToast({ message: 'Could not undo. Please try again.' });
+			});
+	};
+
+	// Undo a habit completion: remove today's log so the habit reappears.
+	const undoHabit = (habit: HabitData) => {
+		undoHabitCompletion(habit.id)
+			.then(() => {
+				setHabits((prev) => (prev.some((h) => h.id === habit.id) ? prev : [...prev, habit]));
+				setToast({ message: 'Habit restored.' });
+			})
+			.catch((err) => {
+				console.error('Failed to undo habit completion:', err);
+				setToast({ message: 'Could not undo. Please try again.' });
+			});
+	};
+
 	// Completing the Hero Task promotes the next task in line.
 	const handleHeroComplete = (task: TaskItemData) => {
 		// Persist completion to the database first. Only update the frontend
 		// once the write succeeds, so the UI never shows it as done on failure.
+		const wasHero = task.isFocus === true;
 		completeTask(task.id)
 			.then(() => {
 				// Refetch the queue: the completed task is gone and the next
@@ -236,7 +285,11 @@ export default function HomeScreen() {
 					const nextQueue = tasks as HomeTask[];
 					setTaskQueue(nextQueue);
 					return syncPositions(nextQueue, sortCriteria).then(() => {
-						setToast({ message: 'Task complete! One less thing to worry about.' });
+						setToast({
+							message: 'Task complete! One less thing to worry about.',
+							undoLabel: 'Undo',
+							onUndo: () => undoTaskCompletion(task, wasHero),
+						});
 						emitTaskDataChanged();
 					});
 				});
@@ -249,6 +302,7 @@ export default function HomeScreen() {
 	const handleToggleTask = (task: TaskItemData) => {
 		// Persist completion to the database first. Only update the frontend
 		// once the write succeeds, so the UI never shows it as done on failure.
+		const wasHero = task.isFocus === true;
 		completeTask(task.id)
 			.then(() => {
 				// Refetch the queue so the completed task is removed and the
@@ -257,7 +311,11 @@ export default function HomeScreen() {
 					const nextQueue = tasks as HomeTask[];
 					setTaskQueue(nextQueue);
 					return syncPositions(nextQueue, sortCriteria).then(() => {
-						setToast({ message: 'Task complete! One less thing to worry about.' });
+						setToast({
+							message: 'Task complete! One less thing to worry about.',
+							undoLabel: 'Undo',
+							onUndo: () => undoTaskCompletion(task, wasHero),
+						});
 						emitTaskDataChanged();
 					});
 				});
@@ -376,7 +434,11 @@ export default function HomeScreen() {
 			.then(() => {
 				setDeleteModalVisible(false);
 				setDeletingTask(null);
-				setToast({ message: 'Task deleted.' });
+				setToast({
+					message: 'Task deleted.',
+					undoLabel: 'Undo',
+					onUndo: () => undoTaskDeletion(task),
+				});
 				return refreshTasks().then(() => {
 					emitTaskDataChanged();
 				});
@@ -409,7 +471,11 @@ export default function HomeScreen() {
 			.then(() => {
 				// Remove it from the Daily Habits list once logged successfully.
 				setHabits((prev) => prev.filter((h) => h.id !== habit.id));
-				setToast({ message: 'Habit completed!' });
+				setToast({
+					message: 'Habit completed!',
+					undoLabel: 'Undo',
+					onUndo: () => undoHabit(habit),
+				});
 			})
 			.catch((err) => {
 				console.error('Failed to complete habit:', err);

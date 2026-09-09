@@ -94,3 +94,20 @@ export async function logHabitCompletion(habitId: string): Promise<void> {
         throw error;
     }
 }
+
+/**
+ * Undo a habit completion by removing today's completion log for the habit.
+ * This restores the habit to the "not completed today" list.
+ */
+export async function undoHabitCompletion(habitId: string): Promise<void> {
+    const { error } = await supabase
+        .from('habit_logs')
+        .delete()
+        .eq('habit_id', habitId)
+        .eq('completed_date', todayDateString());
+
+    if (error) {
+        console.error('Failed to undo habit completion:', error.message);
+        throw error;
+    }
+}

@@ -207,6 +207,28 @@ export async function deleteTreasure(taskId: string): Promise<void> {
     }
 }
 
+/**
+ * Restore a previously deleted completed task ("Treasure") with its original
+ * completion data. Used to undo a deletion from the Wins tab.
+ */
+export async function restoreTreasure(log: TreasureLog): Promise<void> {
+    const { error } = await supabase.from('tasks').insert({
+        task_id: log.id,
+        cat_id: log.catId,
+        title: log.title,
+        description: log.description,
+        status: 'completed',
+        is_focus: false,
+        completed_date: log.completedDate || null,
+        completed_time: log.completedTime || null,
+    });
+
+    if (error) {
+        console.error('Failed to restore treasure:', error.message);
+        throw error;
+    }
+}
+
 /** Raw shape of a row from the `categories` table. */
 interface CategoryRow {
     cat_id: string;
