@@ -13,6 +13,8 @@ import DailyHabits from '@/components/index_components/daily-habits';
 import { TaskItemData } from '@/components/index_components/task-item';
 import { HabitData } from '@/components/index_components/habit-card';
 import Toast, { ToastData } from '@/components/ui/toast';
+import EditTreasureModal from '@/components/wins_components/edit-treasure-modal';
+import DeleteTreasureModal from '@/components/wins_components/delete-treasure-modal';
 import {
     fetchPendingTaskQueue,
     completeTask,
@@ -23,6 +25,22 @@ import {
     HomeSortCriteria,
 } from '@/dp_operations/home/tasks';
 import { fetchTodayHabits, logHabitCompletion } from '@/dp_operations/home/habits';
+import { fetchCategories, updateTreasure, deleteTreasure, Category, TreasureLog } from '@/dp_operations/wins/treasures';
+
+// Map a HomeTask to the TreasureLog shape the Wins edit/delete modals expect.
+// The modals only read id/title/description/catId; completedDate/Time are unused
+// in the edit/delete flows, so we supply empty placeholders.
+function toTreasureLog(task: HomeTask): TreasureLog {
+    return {
+        id: task.id,
+        title: task.title,
+        description: task.description,
+        catId: task.catId,
+        iconName: task.iconName,
+        completedDate: '',
+        completedTime: '',
+    };
+}
 
 export default function HomeScreen() {
 	const [fontsLoaded] = useFonts({
@@ -56,6 +74,15 @@ export default function HomeScreen() {
 
 	// Pull-to-refresh state for the task queue.
 	const [refreshing, setRefreshing] = useState(false);
+
+	// Edit / delete modal state (reuses the Wins tab flow).
+	const [editingTask, setEditingTask] = useState<HomeTask | null>(null);
+	const [editModalVisible, setEditModalVisible] = useState(false);
+	const [categories, setCategories] = useState<Category[]>([]);
+	const [saving, setSaving] = useState(false);
+	const [deletingTask, setDeletingTask] = useState<HomeTask | null>(null);
+	const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+	const [deleting, setDeleting] = useState(false);
 
 	useEffect(() => {
 		if (fontsLoaded) {
@@ -130,6 +157,21 @@ export default function HomeScreen() {
 			};
 		}, [])
 	);
+
+	// Fetch categories once on mount (for the edit modal).
+	useEffect(() => {
+		let isMounted = true;
+		fetchCategories()
+			.then((data) => {
+				if (isMounted) setCategories(data);
+			})
+			.catch((err) => {
+				console.error('Failed to load categories:', err);
+			});
+		return () => {
+			isMounted = false;
+		};
+	}, []);
 
 	if (!fontsLoaded) {
 		return null;
@@ -260,6 +302,64 @@ export default function HomeScreen() {
 			});
 	};
 
+	// Open the edit modal for a task (edit mode → tap body → Edit).
+	const handleEditTask = (task: TaskItemData) => {
+		setEditingTask(task as HomeTask);
+		setEditModalVisible(true);
+	};
+
+	// Confirm the edited task, then refresh the queue.
+	const handleConfirmEdit = (payload: {
+		status: 'completed' | 'pending';
+		title: string;
+		description: string | null;
+		cat_id: string | null;
+	}) => {
+		if (!editingTask) return;
+		setSaving(true);
+		updateTreasure(editingTask.id, payload)
+			.then(() => {
+				setEditModalVisible(false);
+				setEditingTask(null);
+				setToast({ message: 'Task updated!' });
+				return refreshTasks().then(() => {
+					emitTaskDataChanged();
+				});
+			})
+			.catch((err) => {
+				console.error('Failed to update task:', err);
+			})
+			.finally(() => {
+				setSaving(false);
+			});
+	};
+
+	// Open the delete confirmation for a task (edit mode → tap body → Delete).
+	const handleDeleteTask = (task: TaskItemData) => {
+		setDeletingTask(task as HomeTask);
+		setDeleteModalVisible(true);
+	};
+
+	// Confirm the permanent deletion, then refresh the queue.
+	const handleConfirmDelete = (task: HomeTask) => {
+		setDeleting(true);
+		deleteTreasure(task.id)
+			.then(() => {
+				setDeleteModalVisible(false);
+				setDeletingTask(null);
+				setToast({ message: 'Task deleted.' });
+				return refreshTasks().then(() => {
+					emitTaskDataChanged();
+				});
+			})
+			.catch((err) => {
+				console.error('Failed to delete task:', err);
+			})
+			.finally(() => {
+				setDeleting(false);
+			});
+	};
+
 	// Pull-to-refresh: refetch tasks + habits, guarding against duplicate runs.
 	const handleRefresh = useCallback(() => {
 		if (refreshing) return;
@@ -358,6 +458,8 @@ export default function HomeScreen() {
 						sortCriteria={sortCriteria}
 						onMakeHero={handleMakeHero}
 						onReorder={handleReorder}
+						onEdit={handleEditTask}
+						onDelete={handleDeleteTask}
 					/>
 				)}
 
@@ -369,6 +471,31 @@ export default function HomeScreen() {
 					/>
 				)}
 			</ScrollView>
+
+			{/* Edit task modal */}
+			<EditTreasureModal
+				visible={editModalVisible}
+				log={editingTask ? toTreasureLog(editingTask) : null}
+				categories={categories}
+				onClose={() => {
+					setEditModalVisible(false);
+					setEditingTask(null);
+				}}
+				onConfirm={handleConfirmEdit}
+				saving={saving}
+			/>
+
+			{/* Delete confirmation modal */}
+			<DeleteTreasureModal
+				visible={deleteModalVisible}
+				log={deletingTask ? toTreasureLog(deletingTask) : null}
+				onClose={() => {
+					setDeleteModalVisible(false);
+					setDeletingTask(null);
+				}}
+				onConfirmDelete={(log) => handleConfirmDelete(deletingTask!)}
+				deleting={deleting}
+			/>
 
 			{/* Success toast for daily habit completion. */}
 			<Toast toast={toast} onDismiss={() => setToast(null)} />

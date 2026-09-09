@@ -13,7 +13,7 @@ import DeleteTreasureModal from '@/components/wins_components/delete-treasure-mo
 import WinsCalendarModal from '@/components/wins_components/wins-calendar-modal';
 import Toast, { ToastData } from '@/components/ui/toast';
 import { fetchPendingTaskQueue, sortHomeTasks, HomeTask, HomeSortCriteria } from '@/dp_operations/home/tasks';
-import { filterTasksByDate } from '@/dp_operations/calendar/tasks';
+import { filterTasksByDate, filterTasks, CalendarFilterCriteria } from '@/dp_operations/calendar/tasks';
 import { completeTask } from '@/dp_operations/home/tasks';
 import { fetchCategories, updateTreasure, deleteTreasure, Category, TreasureLog } from '@/dp_operations/wins/treasures';
 
@@ -65,6 +65,12 @@ export default function CalendarScreen() {
     const [refreshing, setRefreshing] = useState(false);
     // The global sort mode, owned by Home. Calendar only reflects it.
     const [sortCriteria, setSortCriteria] = useState<HomeSortCriteria>('manual');
+    // Calendar's own filter (which tasks are visible). This is a local filter,
+    // NOT a global reorder — it never touches the global queue or positions.
+    const [filterCriteria, setFilterCriteria] = useState<CalendarFilterCriteria>('manual');
+    const [filterValue, setFilterValue] = useState<string | null>(null);
+    // Date picker for the "Deadline" / "Time Added" filter value.
+    const [filterDatePickerVisible, setFilterDatePickerVisible] = useState(false);
     const [editMode, setEditMode] = useState(false);
     const [selectedDate, setSelectedDate] = useState<string>(todayDateString());
     const [calendarVisible, setCalendarVisible] = useState(false);
@@ -88,8 +94,9 @@ export default function CalendarScreen() {
     }, [fontsLoaded]);
 
     // Refetch the global queue from Supabase, apply the current Home sort mode,
-    // then filter by the selected date. Calendar is a filtered view of the
-    // global queue — it never reorders or re-sorts independently.
+    // then apply the date filter. Calendar is a filtered view of the global
+    // queue — it never reorders, re-sorts, or modifies positions. The task
+    // filter is applied separately in the render so changing it doesn't refetch.
     const refreshTasks = useCallback(() => {
         return Promise.all([fetchPendingTaskQueue(), getHomeSortCriteria()])
             .then(([queue, sortMode]) => {
@@ -222,6 +229,23 @@ export default function CalendarScreen() {
         });
     }, [refreshing, refreshTasks]);
 
+    // Change the Calendar filter criterion. Resets the filter value, since the
+    // previous value may not apply to the new criterion.
+    const handleChangeFilterCriteria = (criteria: CalendarFilterCriteria) => {
+        setFilterCriteria(criteria);
+        setFilterValue(null);
+    };
+
+    // Set the Calendar filter value (e.g. a category name or priority level).
+    const handleChangeFilterValue = (value: string) => {
+        setFilterValue(value);
+    };
+
+    // Apply the Calendar filter to the date-filtered tasks, preserving the
+    // global order. This is a local view filter — it never reorders or modifies
+    // the global queue.
+    const filteredTasks = filterTasks(tasks, filterCriteria, filterValue);
+
     return (
         <View className="flex-1 bg-cozyBg pt-14 px-5">
             {/* Header row with "Calendar" title and sun icon (wins.tsx styling) */}
@@ -263,9 +287,9 @@ export default function CalendarScreen() {
                     </TouchableOpacity>
                 </View>
 
-                {/* Sort control header — reflects the global Home sort mode */}
+                {/* Filter control header — filters which tasks are visible */}
                 <View className="flex-row items-center justify-between mt-8 mb-4">
-                    <SortControl criteria={sortCriteria} />
+                    <SortControl criteria={filterCriteria} onChangeCriteria={handleChangeFilterCriteria} />
                     <TouchableOpacity
                         onPress={() => setEditMode((prev) => !prev)}
                         activeOpacity={0.7}
@@ -279,17 +303,66 @@ export default function CalendarScreen() {
                     </TouchableOpacity>
                 </View>
 
+                {/* Filter value selector — only shown when a value is required */}
+                {filterCriteria !== 'manual' && (
+                    <View className="mb-4">
+                        {filterCriteria === 'category' && (
+                            <View className="flex-row flex-wrap">
+                                {categories.map((cat) => {
+                                    const selected = filterValue === cat.cat_name;
+                                    return (
+                                        <TouchableOpacity
+                                            key={cat.cat_id}
+                                            onPress={() => handleChangeFilterValue(cat.cat_name)}
+                                            activeOpacity={0.7}
+                                            className={`flex-row items-center px-3 py-2 rounded-xl mr-2 mb-2 ${
+                                                selected ? 'bg-focusHero' : 'bg-cardBg'
+                                            }`}
+                                        >
+                                            <Text className="mr-1">{cat.emoji}</Text>
+                                            <Text className={`font-fredoka-semibold ${selected ? 'text-white' : 'text-deepBrown'}`}>
+                                                {cat.cat_name}
+                                            </Text>
+                                        </TouchableOpacity>
+                                    );
+                                })}
+                            </View>
+                        )}
+                        {filterCriteria === 'priority' && (
+                            <View className="flex-row">
+                                {(['high', 'medium', 'low'] as const).map((p) => {
+                                    const selected = filterValue === p;
+                                    return (
+                                        <TouchableOpacity
+                                            key={p}
+                                            onPress={() => handleChangeFilterValue(p)}
+                                            activeOpacity={0.7}
+                                            className={`flex-1 py-2.5 rounded-xl items-center mr-2 last:mr-0 ${
+                                                selected ? 'bg-focusHero' : 'bg-cardBg'
+                                            }`}
+                                        >
+                                            <Text className={`font-fredoka-semibold capitalize ${selected ? 'text-white' : 'text-deepBrown'}`}>
+                                                {p}
+                                            </Text>
+                                        </TouchableOpacity>
+                                    );
+                                })}
+                            </View>
+                        )}
+                    </View>
+                )}
+
                 {/* Task cards */}
                 {loading ? (
                     <Text className="text-base font-fredoka text-mutedBrown">
                         Loading your queue...
                     </Text>
-                ) : tasks.length === 0 ? (
+                ) : filteredTasks.length === 0 ? (
                     <Text className="text-base font-fredoka text-mutedBrown">
                         Nothing in your queue for this day. Enjoy the calm!
                     </Text>
                 ) : (
-                    tasks.map((task) => (
+                    filteredTasks.map((task) => (
                         <CalendarTaskCard
                             key={task.id}
                             task={task}
@@ -337,6 +410,17 @@ export default function CalendarScreen() {
                     setCalendarVisible(false);
                 }}
                 selectedDate={selectedDate}
+            />
+
+            {/* Filter value date picker (Deadline / Time Added filters) */}
+            <WinsCalendarModal
+                visible={filterDatePickerVisible}
+                onClose={() => setFilterDatePickerVisible(false)}
+                onSelectDate={(date) => {
+                    handleChangeFilterValue(date);
+                    setFilterDatePickerVisible(false);
+                }}
+                selectedDate={filterValue ?? todayDateString()}
             />
 
             {/* Success toast for complete/edit/delete actions. */}

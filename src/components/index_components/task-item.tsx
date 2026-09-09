@@ -34,6 +34,14 @@ interface TaskItemProps {
     isHero?: boolean;
     /** Called when the user taps "Make Hero" in edit mode. */
     onMakeHero?: (task: TaskItemData) => void;
+    /** When true, the Edit/Delete actions are revealed (edit mode). */
+    showActions?: boolean;
+    /** Toggle the Edit/Delete actions (edit mode). */
+    onToggleActions?: () => void;
+    /** Called when the user taps "Edit" (edit mode). */
+    onEdit?: (task: TaskItemData) => void;
+    /** Called when the user taps "Delete" (edit mode). */
+    onDelete?: (task: TaskItemData) => void;
 }
 
 // A single task row with an icon on the left and a checkbox on the right.
@@ -46,48 +54,89 @@ export default function TaskItem({
     editMode,
     isHero,
     onMakeHero,
+    showActions,
+    onToggleActions,
+    onEdit,
+    onDelete,
 }: TaskItemProps) {
     // In edit mode the checkbox is replaced by a drag handle + "Make Hero" action.
+    // Tapping the task body reveals Edit/Delete actions (Wins tab pattern).
     if (editMode) {
         return (
-            <View className={`flex-row items-center py-2.5 ${muted ? 'opacity-40' : ''}`}>
-                {/* Drag handle — the whole card is press-and-hold draggable */}
-                <View className="p-2 mr-1">
-                    <Ionicons name="reorder-three" size={24} color="#7D6E6B" />
-                </View>
-
-                {/* Task icon */}
-                <View className="bg-taskStack/40 rounded-lg p-2 mr-3">
-                    <Ionicons name={task.iconName} size={20} color="#7D6E6B" />
-                </View>
-
-                {/* Truncated title */}
-                <Text
-                    numberOfLines={1}
-                    ellipsizeMode="tail"
-                    className="flex-1 text-base font-fredoka-medium text-deepBrown"
-                >
-                    {task.title}
-                </Text>
-
-                {/* Make Hero button — only visible on non-hero tasks */}
-                {isHero ? (
-                    <View className="flex-row items-center ml-3 bg-focusHero rounded-lg px-2.5 py-1">
-                        <Ionicons name="star" size={14} color="#FFFFFF" />
-                        <Text className="text-xs font-fredoka-bold text-white ml-1">
-                            Hero
-                        </Text>
+            <View className={`${muted ? 'opacity-40' : ''}`}>
+                <View className="flex-row items-center py-2.5">
+                    {/* Drag handle — the whole card is press-and-hold draggable */}
+                    <View className="p-2 mr-1">
+                        <Ionicons name="reorder-three" size={24} color="#7D6E6B" />
                     </View>
-                ) : (
+
+                    {/* Task body — tap to reveal Edit/Delete actions */}
                     <TouchableOpacity
-                        onPress={() => onMakeHero?.(task)}
+                        onPress={onToggleActions}
                         activeOpacity={0.7}
-                        className="ml-3 bg-cardBg rounded-lg px-2.5 py-1.5"
+                        className="flex-row items-center flex-1"
                     >
-                        <Text className="text-xs font-fredoka-semibold text-deepBrown">
-                            Make Hero
+                        {/* Task icon */}
+                        <View className="bg-taskStack/40 rounded-lg p-2 mr-3">
+                            <Ionicons name={task.iconName} size={20} color="#7D6E6B" />
+                        </View>
+
+                        {/* Truncated title */}
+                        <Text
+                            numberOfLines={1}
+                            ellipsizeMode="tail"
+                            className="flex-1 text-base font-fredoka-medium text-deepBrown"
+                        >
+                            {task.title}
                         </Text>
                     </TouchableOpacity>
+
+                    {/* Make Hero button — separate, only performs the Hero action */}
+                    {isHero ? (
+                        <View className="flex-row items-center ml-3 bg-focusHero rounded-lg px-2.5 py-1">
+                            <Ionicons name="star" size={14} color="#FFFFFF" />
+                            <Text className="text-xs font-fredoka-bold text-white ml-1">
+                                Hero
+                            </Text>
+                        </View>
+                    ) : (
+                        <TouchableOpacity
+                            onPress={() => onMakeHero?.(task)}
+                            activeOpacity={0.7}
+                            className="ml-3 flex-row items-center bg-focusHero/15 border border-focusHero/20 rounded-lg px-2.5 py-1.5"
+                        >
+                            <Ionicons name="star-outline" size={14} color="#6B8E70" />
+                            <Text className="text-xs font-fredoka-semibold text-focusHero ml-1">
+                                Make Hero
+                            </Text>
+                        </TouchableOpacity>
+                    )}
+                </View>
+
+                {/* Edit / Delete actions revealed on tap (Wins tab pattern) */}
+                {showActions && (
+                    <View className="flex-row items-center justify-end pb-2">
+                        <TouchableOpacity
+                            onPress={() => onEdit?.(task)}
+                            activeOpacity={0.7}
+                            className="flex-row items-center px-3 py-2 rounded-xl bg-cardBg border border-white/50 mr-2"
+                        >
+                            <Ionicons name="create-outline" size={16} color="#7D6E6B" />
+                            <Text className="text-sm font-fredoka-semibold text-deepBrown ml-1">
+                                Edit
+                            </Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            onPress={() => onDelete?.(task)}
+                            activeOpacity={0.7}
+                            className="flex-row items-center px-3 py-2 rounded-xl bg-cardBg border border-white/50"
+                        >
+                            <Ionicons name="trash-outline" size={16} color="#C0392B" />
+                            <Text className="text-sm font-fredoka-semibold text-deepBrown ml-1">
+                                Delete
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
                 )}
             </View>
         );

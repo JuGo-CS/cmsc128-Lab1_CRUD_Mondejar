@@ -29,6 +29,10 @@ interface OtherTasksProps {
     onMakeHero?: (task: TaskItemData) => void;
     /** Called with the new full queue order after a manual drag. */
     onReorder?: (orderedIds: string[]) => void;
+    /** Called when the user taps "Edit" on a task in edit mode. */
+    onEdit?: (task: TaskItemData) => void;
+    /** Called when the user taps "Delete" on a task in edit mode. */
+    onDelete?: (task: TaskItemData) => void;
 }
 
 // Human-readable label for each (user-selectable) Home sort criterion.
@@ -166,6 +170,8 @@ export default function OtherTasks({
     onChangeSort,
     onMakeHero,
     onReorder,
+    onEdit,
+    onDelete,
 }: OtherTasksProps) {
     // Show a limited number of tasks in the stacked preview.
     const PREVIEW_COUNT = 3;
@@ -195,6 +201,8 @@ export default function OtherTasks({
                     tasks={tasks}
                     onMakeHero={onMakeHero}
                     onReorder={onReorder}
+                    onEdit={onEdit}
+                    onDelete={onDelete}
                 />
             </View>
         );
@@ -288,16 +296,24 @@ function DraggableTaskList({
     tasks,
     onMakeHero,
     onReorder,
+    onEdit,
+    onDelete,
 }: {
     tasks: TaskItemData[];
     onMakeHero?: (task: TaskItemData) => void;
     onReorder?: (orderedIds: string[]) => void;
+    onEdit?: (task: TaskItemData) => void;
+    onDelete?: (task: TaskItemData) => void;
 }) {
     const [order, setOrder] = useState<string[]>(() => tasks.map((t) => t.id));
 
     // Measured height of a single row (captured from the first row's layout).
     // Used to translate a drag offset into how many rows were crossed.
     const [rowHeight, setRowHeight] = useState(0);
+
+    // The id of the card whose Edit/Delete actions are open (only one at a
+    // time so row heights stay consistent). Reset to null on any drag start.
+    const [expandedId, setExpandedId] = useState<string | null>(null);
 
     // Keep the local order in sync when the tasks list changes (e.g. after a
     // hero selection or a task completion), so the list never shows stale ids.
@@ -342,6 +358,13 @@ function DraggableTaskList({
                         onLayoutHeight={setRowHeight}
                         onDragEnd={handleDragEnd}
                         onMakeHero={onMakeHero}
+                        onEdit={onEdit}
+                        onDelete={onDelete}
+                        showActions={expandedId === id}
+                        onToggleActions={() =>
+                            setExpandedId((prev) => (prev === id ? null : id))
+                        }
+                        onDragStart={() => setExpandedId(null)}
                     />
                 );
             })}
@@ -357,11 +380,21 @@ function DraggableRow({
     onLayoutHeight,
     onDragEnd,
     onMakeHero,
+    onEdit,
+    onDelete,
+    showActions,
+    onToggleActions,
+    onDragStart,
 }: {
     task: TaskItemData;
     onLayoutHeight: (height: number) => void;
     onDragEnd: (task: TaskItemData, offsetY: number) => void;
     onMakeHero?: (task: TaskItemData) => void;
+    onEdit?: (task: TaskItemData) => void;
+    onDelete?: (task: TaskItemData) => void;
+    showActions?: boolean;
+    onToggleActions?: () => void;
+    onDragStart?: () => void;
 }) {
     const translateY = useSharedValue(0);
     const [dragging, setDragging] = useState(false);
@@ -371,6 +404,9 @@ function DraggableRow({
         // swipes/taps don't reorder tasks.
         .activateAfterLongPress(200)
         .onStart(() => {
+            // Collapse any open actions so all rows return to their base height
+            // before dragging (keeps the drag pitch consistent).
+            if (onDragStart) runOnJS(onDragStart)();
             runOnJS(setDragging)(true);
         })
         .onUpdate((e) => {
@@ -401,6 +437,10 @@ function DraggableRow({
                     editMode
                     isHero={task.isFocus === true}
                     onMakeHero={onMakeHero}
+                    showActions={showActions}
+                    onToggleActions={onToggleActions}
+                    onEdit={onEdit}
+                    onDelete={onDelete}
                 />
             </Animated.View>
         </GestureDetector>
