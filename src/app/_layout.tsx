@@ -4,7 +4,8 @@ import { View, TouchableOpacity, Text, Platform } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useFonts, Fredoka_400Regular, Fredoka_500Medium, Fredoka_600SemiBold, Fredoka_700Bold } from '@expo-google-fonts/fredoka';
 import * as SplashScreen from 'expo-splash-screen';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import AddModal from '@/components/add-modal';
 
 function FloatingAddButton({ onPress }: { onPress?: () => void }) {
     return (
@@ -42,6 +43,8 @@ export default function AppLayout() {
         Fredoka_600SemiBold,
         Fredoka_700Bold,
     });
+
+    const [addModalVisible, setAddModalVisible] = useState(false);
 
     useEffect(() => {
         if (fontsLoaded) {
@@ -124,7 +127,17 @@ export default function AppLayout() {
                 />
             </Tabs>
 
-            <FloatingAddButton onPress={() => console.log('Open Add Task Modal')} />
+            <FloatingAddButton onPress={() => setAddModalVisible(true)} />
+
+            <AddModal
+                visible={addModalVisible}
+                onClose={() => setAddModalVisible(false)}
+                onSaved={() => {
+                    // The underlying screen refetches on focus (useFocusEffect),
+                    // so newly created tasks/habits appear automatically.
+                    setAddModalVisible(false);
+                }}
+            />
         </View>
     );
 }
