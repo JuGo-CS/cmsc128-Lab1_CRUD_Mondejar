@@ -31,20 +31,25 @@ interface OtherTasksProps {
     onReorder?: (orderedIds: string[]) => void;
 }
 
-// Human-readable label for each Home sort criterion.
+// Human-readable label for each (user-selectable) Home sort criterion.
+// 'manual' is the default position-order mode and is not shown in the menu.
 const SORT_LABELS: Record<HomeSortCriteria, string> = {
+    manual: 'Manual',
     priority: 'Priority',
     deadline: 'Deadline',
     category: 'Category',
     createdAt: 'Time added',
 };
 
+// The options shown in the sort menu (excludes the 'manual' position order).
+const SORT_OPTIONS: HomeSortCriteria[] = ['priority', 'deadline', 'category', 'createdAt'];
+
 // Fixed header for the "Other tasks" section (title + sort + edit button).
 // Rendered outside the scrollable area so it stays pinned on screen.
 export function OtherTasksHeader({
     editMode,
     onToggleEdit,
-    sortCriteria = 'priority',
+    sortCriteria = 'manual',
     onChangeSort,
 }: {
     editMode?: boolean;
@@ -107,7 +112,7 @@ export function OtherTasksHeader({
                         </View>
                         <View className="h-[3px] bg-deepBrown/10 mb-3" />
                         <View className="gap-y-4">
-                            {(Object.keys(SORT_LABELS) as HomeSortCriteria[]).map((option) => {
+                            {SORT_OPTIONS.map((option) => {
                                 const selected = option === sortCriteria;
                                 return (
                                     <TouchableOpacity
@@ -290,20 +295,27 @@ function DraggableTaskList({
 }) {
     const [order, setOrder] = useState<string[]>(() => tasks.map((t) => t.id));
 
+    // Measured height of a single row (captured from the first row's layout).
+    // Used to translate a drag offset into how many rows were crossed.
+    const [rowHeight, setRowHeight] = useState(0);
+
     // Keep the local order in sync when the tasks list changes (e.g. after a
     // hero selection or a task completion), so the list never shows stale ids.
     useEffect(() => {
         setOrder(tasks.map((t) => t.id));
     }, [tasks]);
 
-    const ROW_HEIGHT = 64;
-
     // On drag end, compute the new index from the dragged offset and reorder.
     const handleDragEnd = (task: TaskItemData, offsetY: number) => {
         const fromIndex = order.indexOf(task.id);
         if (fromIndex === -1) return;
 
-        const move = Math.round(offsetY / ROW_HEIGHT);
+        // Use the measured row height if available; otherwise fall back to a
+        // sensible default. The card has a `mb-3` (12px) bottom margin, so the
+        // pitch between row tops is the card height plus that gap.
+        const ROW_GAP = 12;
+        const pitch = rowHeight > 0 ? rowHeight + ROW_GAP : 60;
+        const move = Math.round(offsetY / pitch);
         const toIndex = Math.max(0, Math.min(order.length - 1, fromIndex + move));
         if (toIndex === fromIndex) return;
 
@@ -327,6 +339,7 @@ function DraggableTaskList({
                     <DraggableRow
                         key={id}
                         task={task}
+                        onLayoutHeight={setRowHeight}
                         onDragEnd={handleDragEnd}
                         onMakeHero={onMakeHero}
                     />
@@ -341,10 +354,12 @@ function DraggableTaskList({
 
 function DraggableRow({
     task,
+    onLayoutHeight,
     onDragEnd,
     onMakeHero,
 }: {
     task: TaskItemData;
+    onLayoutHeight: (height: number) => void;
     onDragEnd: (task: TaskItemData, offsetY: number) => void;
     onMakeHero?: (task: TaskItemData) => void;
 }) {
@@ -379,6 +394,7 @@ function DraggableRow({
             <Animated.View
                 className="bg-taskStack rounded-2xl px-4 mb-3 border border-white/50"
                 style={animatedStyle}
+                onLayout={(e) => onLayoutHeight(e.nativeEvent.layout.height)}
             >
                 <TaskItem
                     task={task}

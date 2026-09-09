@@ -129,12 +129,18 @@ function orderTaskQueue(rows: TaskRow[]): TaskRow[] {
     const focusTasks = rows.filter((r) => r.is_focus);
     const otherTasks = rows
         .filter((r) => !r.is_focus)
+        // Tasks with a `position` come first (ordered by it); tasks without one
+        // (e.g. newly added before any reorder) go to the end by `created_at`.
+        // This keeps the manual order stable and never mixes null/non-null
+        // positions in a way that produces an inconsistent sequence.
         .sort((a, b) => {
-            // Prefer the manual `position` column when present; fall back to
-            // `created_at` so the app still works before the migration runs.
-            if (a.position != null && b.position != null) {
-                return a.position - b.position;
+            const aHasPos = a.position != null;
+            const bHasPos = b.position != null;
+            if (aHasPos && bHasPos) {
+                return a.position! - b.position!;
             }
+            if (aHasPos) return -1;
+            if (bHasPos) return 1;
             return a.created_at.localeCompare(b.created_at);
         });
     return [...focusTasks, ...otherTasks];
@@ -283,40 +289,53 @@ export async function setHeroTask(taskId: string): Promise<string | null> {
 }
 
 /**
- * Persist a manual task ordering.
+ * Persist the order of the active non-Hero tasks to `tasks.position`.
  *
- * The `tasks` table stores order via the `position` column. Each task in
- * `orderedIds` is written with its index as the new `position`, so the order
- * survives a refresh/reopen. The Hero Task is always kept at the front of the
- * queue, so the passed list is expected to be the full ordered queue with the
- * Hero Task first.
+ * The Hero Task is excluded from the position sequence — its `position` is set
+ * to null so it never occupies a slot in the Other Tasks queue. The non-Hero
+ * tasks are written with sequential, unique positions `0, 1, 2, ...` in the
+ * given order. This keeps the database order in sync with the visible queue.
  */
-export async function reorderTasks(orderedIds: string[]): Promise<void> {
-    // Batch updates so a single network round-trip persists the whole order.
-    const updates = orderedIds.map((taskId, index) =>
-        supabase
-            .from('tasks')
-            .update({ position: index })
-            .eq('task_id', taskId)
-    );
+export async function persistTaskPositions(
+    orderedOtherIds: string[],
+    heroId: string | null
+): Promise<void> {
+    const updates: Promise<unknown>[] = [];
+
+    // The Hero Task must not occupy a position in the Other Tasks queue.
+    if (heroId) {
+        updates.push(
+            supabase.from('tasks').update({ position: null }).eq('task_id', heroId)
+        );
+    }
+
+    // Deduplicate so a task never gets two conflicting `position` values, then
+    // write each non-Hero task's index as its new position (contiguous, unique).
+    const uniqueIds = Array.from(new Set(orderedOtherIds));
+    uniqueIds.forEach((taskId, index) => {
+        updates.push(
+            supabase.from('tasks').update({ position: index }).eq('task_id', taskId)
+        );
+    });
 
     const results = await Promise.all(updates);
     const error = results.find((r) => (r as { error?: unknown }).error);
     if (error) {
         const err = (error as { error: { message: string } }).error;
-        console.error('Failed to reorder tasks:', err.message);
+        console.error('Failed to persist task positions:', err.message);
         throw err;
     }
 }
 
 /**
  * Sorting criteria for the Home task queue.
+ * - 'manual' → the persisted `position` order (the default; never re-sorted)
  * - 'priority' → High → Low
  * - 'deadline' → Earliest → Latest
  * - 'category' → A → Z by category title
  * - 'createdAt' → Newest → Oldest
  */
-export type HomeSortCriteria = 'priority' | 'deadline' | 'category' | 'createdAt';
+export type HomeSortCriteria = 'manual' | 'priority' | 'deadline' | 'category' | 'createdAt';
 
 /** A fixed rank for each priority level, used to order High → Low. */
 const HOME_PRIORITY_RANK: Record<HomeTask['priority'], number> = {
@@ -339,6 +358,13 @@ export function sortHomeTasks(
     // Split the Hero Task (is_focus) from the rest.
     const hero = tasks.filter((t) => t.isFocus);
     const others = tasks.filter((t) => !t.isFocus);
+
+    // 'manual' means "keep the persisted `position` order" — the Hero stays
+    // first and the others keep whatever order `orderTaskQueue` produced. This
+    // ensures manual drag ordering is never overwritten by automatic sorting.
+    if (criteria === 'manual') {
+        return [...hero, ...others];
+    }
 
     const sortedOthers = [...others].sort((a, b) => {
         switch (criteria) {

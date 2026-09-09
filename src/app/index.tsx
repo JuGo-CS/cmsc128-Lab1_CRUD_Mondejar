@@ -17,7 +17,7 @@ import {
     fetchPendingTaskQueue,
     completeTask,
     setHeroTask,
-    reorderTasks,
+    persistTaskPositions,
     sortHomeTasks,
     HomeTask,
     HomeSortCriteria,
@@ -29,13 +29,14 @@ import { fetchTodayHabits, logHabitCompletion } from '@/dp_operations/home/habit
 const SORT_CRITERIA_KEY = 'unti-unti:home-sort-criteria';
 
 // The valid sort criteria, used to validate a value loaded from storage.
-const SORT_CRITERIA_VALUES: HomeSortCriteria[] = ['priority', 'deadline', 'category', 'createdAt'];
+// 'manual' (the default position order) is included so it survives a reload.
+const SORT_CRITERIA_VALUES: HomeSortCriteria[] = ['manual', 'priority', 'deadline', 'category', 'createdAt'];
 
 /** Safely coerce an unknown stored value into a valid sort criterion. */
 function parseSortCriteria(value: unknown): HomeSortCriteria {
     return SORT_CRITERIA_VALUES.includes(value as HomeSortCriteria)
         ? (value as HomeSortCriteria)
-        : 'priority';
+        : 'manual';
 }
 
 export default function HomeScreen() {
@@ -53,9 +54,10 @@ export default function HomeScreen() {
 
 	// Whether the "Other tasks" section is in edit mode (drag + hero selection).
 	const [editMode, setEditMode] = useState(false);
-	// Active sort criterion for the "Other tasks" queue. Loaded from storage on
-	// mount so the user's preference survives a refresh/reopen.
-	const [sortCriteria, setSortCriteria] = useState<HomeSortCriteria>('priority');
+	// Active sort criterion for the "Other tasks" queue. 'manual' (the default)
+	// keeps the persisted `position` order; the other options apply automatic
+	// sorting. Loaded from storage on mount so the preference survives reload.
+	const [sortCriteria, setSortCriteria] = useState<HomeSortCriteria>('manual');
 
 	// Daily habits — loaded from the Supabase `habits` table (not yet completed today).
 	const [habits, setHabits] = useState<HabitData[]>([]);
@@ -163,16 +165,35 @@ export default function HomeScreen() {
 	// The remaining tasks form the "Other tasks" queue, in order.
 	const otherTasks = sortedQueue.slice(1);
 
+	// Persist the positions of the active non-Hero tasks so the database order
+	// matches the given visible queue. Uses the current sort to determine the
+	// final order of the non-Hero tasks.
+	const syncPositions = useCallback((queue: HomeTask[], criteria: HomeSortCriteria) => {
+		const sorted = sortHomeTasks(queue, criteria);
+		const hero = sorted.find((t) => t.isFocus) ?? null;
+		const others = sorted.filter((t) => !t.isFocus);
+		return persistTaskPositions(
+			others.map((t) => t.id),
+			hero?.id ?? null
+		);
+	}, []);
+
 	// Completing the Hero Task promotes the next task in line.
 	const handleHeroComplete = (task: TaskItemData) => {
 		// Persist completion to the database first. Only update the frontend
 		// once the write succeeds, so the UI never shows it as done on failure.
 		completeTask(task.id)
 			.then(() => {
-				// Remove the completed task; the next pending task becomes the Hero.
-				setTaskQueue((prev) => prev.filter((t) => t.id !== task.id));
-				// Notify other screens (Wins/Calendar) to refetch their data.
-				emitTaskDataChanged();
+				// Refetch the queue: the completed task is gone and the next
+				// task has been promoted to Hero. This also gives us the latest
+				// order so we can recalculate positions.
+				return fetchPendingTaskQueue().then((tasks) => {
+					const nextQueue = tasks as HomeTask[];
+					setTaskQueue(nextQueue);
+					return syncPositions(nextQueue, sortCriteria).then(() => {
+						emitTaskDataChanged();
+					});
+				});
 			})
 			.catch((err) => {
 				console.error('Failed to complete hero task:', err);
@@ -184,11 +205,15 @@ export default function HomeScreen() {
 		// once the write succeeds, so the UI never shows it as done on failure.
 		completeTask(task.id)
 			.then(() => {
-				// Remove it from the Other Tasks queue, preserving the order of
-				// the remaining tasks.
-				setTaskQueue((prev) => prev.filter((t) => t.id !== task.id));
-				// Notify other screens (Wins/Calendar) to refetch their data.
-				emitTaskDataChanged();
+				// Refetch the queue so the completed task is removed and the
+				// remaining non-Hero positions are recalculated (no gap).
+				return fetchPendingTaskQueue().then((tasks) => {
+					const nextQueue = tasks as HomeTask[];
+					setTaskQueue(nextQueue);
+					return syncPositions(nextQueue, sortCriteria).then(() => {
+						emitTaskDataChanged();
+					});
+				});
 			})
 			.catch((err) => {
 				console.error('Failed to complete task:', err);
@@ -201,8 +226,16 @@ export default function HomeScreen() {
 	};
 
 	// Change the active sort criterion for the Other tasks queue.
+	// The new sorted order of the non-Hero tasks is persisted to `position`.
 	const handleChangeSort = (criteria: HomeSortCriteria) => {
 		setSortCriteria(criteria);
+		syncPositions(taskQueue, criteria)
+			.then(() => {
+				emitTaskDataChanged();
+			})
+			.catch((err) => {
+				console.error('Failed to persist sort order:', err);
+			});
 	};
 
 	// Make the given task the Hero Task. Persists `is_focus` to Supabase.
@@ -212,8 +245,13 @@ export default function HomeScreen() {
 				// The DB now has exactly one `is_focus` task. Refetch so the
 				// queue reflects the new hero + the previous hero rejoins it.
 				return fetchPendingTaskQueue().then((tasks) => {
-					setTaskQueue(tasks as HomeTask[]);
-					emitTaskDataChanged();
+					const nextQueue = tasks as HomeTask[];
+					setTaskQueue(nextQueue);
+					// Recalculate the non-Hero positions so the new hero has no
+					// position and the remaining tasks are sequential (0,1,2,...).
+					return syncPositions(nextQueue, 'manual').then(() => {
+						emitTaskDataChanged();
+					});
 				});
 			})
 			.catch((err) => {
@@ -221,23 +259,26 @@ export default function HomeScreen() {
 			});
 	};
 
-	// Persist a manual drag reorder of the full queue (hero first).
+	// Persist a manual drag reorder of the non-Hero tasks.
 	const handleReorder = (orderedOtherIds: string[]) => {
-		// The Hero Task stays pinned at the front of the queue, so prepend it
-		// to the reordered "other tasks" before persisting the full order.
-		const fullOrder = heroTask ? [heroTask.id, ...orderedOtherIds] : orderedOtherIds;
-		reorderTasks(fullOrder)
+		// Build the new queue (hero first, then the dragged non-Hero order).
+		const hero = taskQueue.find((t) => t.isFocus) ?? null;
+		const orderedOthers = orderedOtherIds
+			.map((id) => taskQueue.find((t) => t.id === id))
+			.filter((t): t is HomeTask => !!t);
+		const nextQueue = hero ? [hero, ...orderedOthers] : orderedOthers;
+
+		// A manual drag overrides any automatic sort, so the display reverts to
+		// the persisted `position` order ('manual').
+		setSortCriteria('manual');
+		setTaskQueue(nextQueue);
+		// Persist the new non-Hero positions, then notify other screens.
+		syncPositions(nextQueue, 'manual')
 			.then(() => {
-				// Reorder the local queue to match the persisted order.
-				setTaskQueue((prev) =>
-					fullOrder
-						.map((id) => prev.find((t) => t.id === id))
-						.filter((t): t is HomeTask => !!t)
-				);
 				emitTaskDataChanged();
 			})
 			.catch((err) => {
-				console.error('Failed to reorder tasks:', err);
+				console.error('Failed to persist reorder:', err);
 			});
 	};
 
