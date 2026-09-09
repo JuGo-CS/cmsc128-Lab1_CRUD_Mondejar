@@ -37,6 +37,8 @@ function toTreasureLog(task: HomeTask): TreasureLog {
         description: task.description,
         catId: task.catId,
         iconName: task.iconName,
+        status: task.completed ? 'completed' : 'pending',
+        deadline: task.deadline,
         completedDate: '',
         completedTime: '',
     };
@@ -314,6 +316,7 @@ export default function HomeScreen() {
 		title: string;
 		description: string | null;
 		cat_id: string | null;
+		deadline: string | null;
 	}) => {
 		if (!editingTask) return;
 		setSaving(true);

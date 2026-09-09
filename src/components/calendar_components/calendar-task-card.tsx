@@ -184,7 +184,7 @@ export default function CalendarTaskCard({
                     {task.title}
                 </Text>
                 <TouchableOpacityCheckbox
-                    completed={task.completed}
+                    completed={!!task.completed}
                     onPress={() => onToggle?.(task)}
                 />
             </TouchableOpacity>

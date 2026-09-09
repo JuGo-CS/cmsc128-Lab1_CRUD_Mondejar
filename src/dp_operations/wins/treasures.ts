@@ -11,6 +11,10 @@ export interface TreasureLog {
     description: string | null;
     catId: string | null;
     iconName: keyof typeof Ionicons.glyphMap;
+    /** The task's actual status: 'completed' for Wins, 'pending' for Home/Calendar. */
+    status: 'completed' | 'pending';
+    /** Deadline date as `YYYY-MM-DD`, or null if the task has no deadline. */
+    deadline: string | null;
     /** Completion date as `YYYY-MM-DD` (matches `tasks.completed_date`). */
     completedDate: string;
     /** Completion time as `HH:MM:SS` (matches `tasks.completed_time`). */
@@ -46,6 +50,8 @@ export interface TreasureEditPayload {
     title: string;
     description: string | null;
     cat_id: string | null;
+    /** Deadline date as `YYYY-MM-DD`, or null to clear it. */
+    deadline: string | null;
 }
 
 /**
@@ -57,6 +63,8 @@ interface CompletedTaskRow {
     cat_id: string | null;
     title: string;
     description: string | null;
+    status: string;
+    deadline: string | null;
     completed_date: string | null;
     completed_time: string | null;
     created_at: string;
@@ -113,6 +121,8 @@ function toTreasureLog(row: CompletedTaskRow): TreasureLog {
         description: row.description,
         catId: row.cat_id,
         iconName: iconForEmoji(row.categories?.emoji_holder),
+        status: row.status === 'pending' ? 'pending' : 'completed',
+        deadline: row.deadline ? row.deadline.slice(0, 10) : null,
         completedDate: row.completed_date ?? '',
         completedTime: row.completed_time ?? '',
     };
@@ -243,6 +253,7 @@ export async function updateTreasure(
         title: payload.title,
         description: payload.description,
         cat_id: payload.cat_id,
+        deadline: payload.deadline,
     };
 
     if (payload.status === 'pending') {

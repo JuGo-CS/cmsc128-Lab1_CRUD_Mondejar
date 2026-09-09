@@ -20,17 +20,67 @@ const PLACEHOLDER_GROUPS: TreasureGroup[] = [
         date: '2026-09-09',
         label: 'September 9, 2026',
         logs: [
-            { id: 't-1', title: 'Finish wireframes for Unti-Unti', description: null, catId: null, iconName: 'school', completedDate: '2026-09-09', completedTime: '14:30:00' },
-            { id: 't-2', title: 'Finish wireframes for Unti-Unti', description: null, catId: null, iconName: 'school', completedDate: '2026-09-09', completedTime: '14:30:00' },
-            { id: 't-3', title: 'Finish wireframes for Unti-Unti', description: null, catId: null, iconName: 'school', completedDate: '2026-09-09', completedTime: '14:30:00' },
+            { 
+                id: 't-1', 
+                title: 'Finish wireframes for Unti-Unti', 
+                description: null, 
+                catId: null, 
+                iconName: 'school', 
+                completedDate: '2026-09-09', 
+                completedTime: '14:30:00',
+                status: 'completed',
+                deadline: null,
+            },
+            { 
+                id: 't-2', 
+                title: 'Finish wireframes for Unti-Unti', 
+                description: null, 
+                catId: null, 
+                iconName: 'school', 
+                completedDate: '2026-09-09', 
+                completedTime: '14:30:00',
+                status: 'completed',
+                deadline: null,
+            },
+            { 
+                id: 't-3', 
+                title: 'Finish wireframes for Unti-Unti', 
+                description: null, 
+                catId: null, 
+                iconName: 'school', 
+                completedDate: '2026-09-09', 
+                completedTime: '14:30:00',
+                status: 'completed',
+                deadline: null,
+            },
         ],
     },
     {
         date: '2026-09-08',
         label: 'September 8, 2026',
         logs: [
-            { id: 't-4', title: 'Finish wireframes for Unti-Unti', description: null, catId: null, iconName: 'school', completedDate: '2026-09-08', completedTime: '14:30:00' },
-            { id: 't-5', title: 'Finish wireframes for Unti-Unti', description: null, catId: null, iconName: 'school', completedDate: '2026-09-08', completedTime: '14:30:00' },
+            { 
+                id: 't-4', 
+                title: 'Finish wireframes for Unti-Unti', 
+                description: null, 
+                catId: null, 
+                iconName: 'school', 
+                completedDate: '2026-09-08', 
+                completedTime: '14:30:00',
+                status: 'completed',
+                deadline: null,
+            },
+            { 
+                id: 't-5', 
+                title: 'Finish wireframes for Unti-Unti', 
+                description: null, 
+                catId: null, 
+                iconName: 'school', 
+                completedDate: '2026-09-08', 
+                completedTime: '14:30:00',
+                status: 'completed',
+                deadline: null,
+            },
         ],
     },
 ];
@@ -129,6 +179,7 @@ export default function WinsScreen() {
         title: string;
         description: string | null;
         cat_id: string | null;
+        deadline: string | null;
     }) => {
         if (!editingLog) return;
         setSaving(true);

@@ -27,10 +27,13 @@ function toTreasureLog(task: HomeTask): TreasureLog {
         description: task.description,
         catId: task.catId,
         iconName: task.iconName,
+        status: task.completed ? 'completed' : 'pending',
+        deadline: task.deadline,
         completedDate: '',
         completedTime: '',
     };
 }
+
 
 /** Today's date as `YYYY-MM-DD` in local time (default selected date). */
 function todayDateString(): string {
@@ -171,6 +174,7 @@ export default function CalendarScreen() {
         title: string;
         description: string | null;
         cat_id: string | null;
+        deadline: string | null;
     }) => {
         if (!editingTask) return;
         setSaving(true);
