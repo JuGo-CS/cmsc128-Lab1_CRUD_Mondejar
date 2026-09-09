@@ -1,7 +1,8 @@
 import React, { useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import Animated, { FadeInDown, FadeOutDown } from 'react-native-reanimated';
+import Animated, { FadeInDown, FadeOutUp } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export interface ToastData {
     /** The short message to display, e.g. "Task completed". */
@@ -30,6 +31,9 @@ const WITHOUT_UNDO_DURATION_MS = 3_000;
 export default function Toast({ toast, onDismiss }: ToastProps) {
     // Track the dismissal timeout so we can clear it when the toast changes.
     const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    // Top safe-area inset so the toast clears the status bar / notch.
+    const insets = useSafeAreaInsets();
 
     useEffect(() => {
         // Clear any existing timeout before scheduling a new one.
@@ -61,21 +65,23 @@ export default function Toast({ toast, onDismiss }: ToastProps) {
 
     return (
         <Animated.View
-            entering={FadeInDown.duration(250)}
-            exiting={FadeOutDown.duration(200)}
+            entering={FadeInDown.duration(300)}
+            exiting={FadeOutUp.duration(200)}
             pointerEvents="box-none"
             className="absolute left-5 right-5"
-            style={{ bottom: 120 }}
+            style={{ top: insets.top + 12 }}
         >
-            <View className="flex-row items-center bg-deepBrown rounded-2xl px-4 py-3 shadow-md">
+            <View className="flex-row items-center bg-deepBrown rounded-3xl px-5 py-4 shadow-lg">
                 {/* Success checkmark */}
-                <Ionicons name="checkmark-circle" size={22} color="#E2EBE2" />
+                <View className="w-9 h-9 rounded-full bg-focusHero items-center justify-center mr-3">
+                    <Ionicons name="checkmark" size={22} color="#FFFFFF" />
+                </View>
 
                 {/* Message */}
                 <Text
                     numberOfLines={2}
                     ellipsizeMode="tail"
-                    className="flex-1 text-sm font-fredoka-medium text-cozyBg ml-2.5"
+                    className="flex-1 text-base font-fredoka-medium text-cozyBg"
                 >
                     {toast.message}
                 </Text>
@@ -88,9 +94,9 @@ export default function Toast({ toast, onDismiss }: ToastProps) {
                             onDismiss?.();
                         }}
                         activeOpacity={0.7}
-                        className="ml-3 px-3 py-1.5 rounded-lg bg-focusHero"
+                        className="ml-4 px-4 py-2.5 rounded-xl bg-focusHero"
                     >
-                        <Text className="text-sm font-fredoka-semibold text-white">
+                        <Text className="text-base font-fredoka-bold text-white">
                             {toast.undoLabel ?? 'Undo'}
                         </Text>
                     </TouchableOpacity>

@@ -13,12 +13,35 @@ interface TaskRow {
     description: string | null;
     status: string;
     is_focus: boolean;
+    priority: string | null;
     deadline: string | null;
     completed_date: string | null;
     completed_time: string | null;
     created_at: string;
+    // Manual ordering column. Optional because it may not exist yet in the
+    // database; when absent the queue falls back to `created_at`.
+    position: number | null;
     // Joined from `categories` via cat_id
-    categories?: { emoji_holder: string | null } | null;
+    categories?: { emoji_holder: string | null; cat_name: string | null } | null;
+}
+
+/**
+ * A pending task with the extra metadata the Home screen needs for sorting,
+ * manual reordering, and Hero Task selection. This is the UI-facing shape.
+ */
+export interface HomeTask extends TaskItemData {
+    /** Priority from `tasks.priority`: 'high' | 'medium' | 'low'. */
+    priority: 'high' | 'medium' | 'low';
+    /** Deadline date as `YYYY-MM-DD`, or null if the task has no deadline. */
+    deadline: string | null;
+    /** Category name from `categories.cat_name`, used for category sorting. */
+    categoryName: string | null;
+    /** When the task was created, used for time-added sorting. */
+    createdAt: string;
+    /** Manual order index (0-based). Null when the DB has no `position` column. */
+    position: number | null;
+    /** Whether this task is currently the Hero Task (`is_focus`). */
+    isFocus: boolean;
 }
 
 /**
@@ -65,13 +88,33 @@ function iconForEmoji(emoji: string | null | undefined): keyof typeof Ionicons.g
     return EMOJI_TO_ICON[emoji] ?? DEFAULT_ICON;
 }
 
-/** Convert a raw tasks row into the `TaskItemData` shape the UI expects. */
-function toTaskItemData(row: TaskRow): TaskItemData {
+/** Normalize a priority value into a known union, defaulting to 'low'. */
+function normalizePriority(priority: string | null): 'high' | 'medium' | 'low' {
+    const value = (priority ?? '').toLowerCase();
+    if (value === 'high' || value === 'medium') return value;
+    return 'low';
+}
+
+/** Normalize a deadline value to a `YYYY-MM-DD` date string (first 10 chars). */
+function normalizeDate(value: string | null): string | null {
+    if (!value) return null;
+    const datePart = value.slice(0, 10);
+    return /^\d{4}-\d{2}-\d{2}$/.test(datePart) ? datePart : null;
+}
+
+/** Convert a raw tasks row into the `HomeTask` shape the UI expects. */
+function toHomeTask(row: TaskRow): HomeTask {
     return {
         id: row.task_id,
         title: row.title,
         iconName: iconForEmoji(row.categories?.emoji_holder),
         completed: row.status === 'completed',
+        priority: normalizePriority(row.priority),
+        deadline: normalizeDate(row.deadline),
+        categoryName: row.categories?.cat_name ?? null,
+        createdAt: row.created_at,
+        position: row.position,
+        isFocus: row.is_focus,
     };
 }
 
@@ -79,15 +122,21 @@ function toTaskItemData(row: TaskRow): TaskItemData {
  * Order the pending task rows into the queue.
  *
  * The queue is a single ordered list where index 0 is the current Hero Task.
- * The hero task is the one flagged `is_focus`; the rest follow in queue order.
- *
- * NOTE: the ordering strategy is intentionally not hard-coded. It can later be
- * made configurable (priority, deadline, category, etc.) by changing this helper
- * without touching the UI.
+ * The hero task is the one flagged `is_focus`; the rest follow by their manual
+ * `position` when available, otherwise by `created_at`.
  */
 function orderTaskQueue(rows: TaskRow[]): TaskRow[] {
     const focusTasks = rows.filter((r) => r.is_focus);
-    const otherTasks = rows.filter((r) => !r.is_focus);
+    const otherTasks = rows
+        .filter((r) => !r.is_focus)
+        .sort((a, b) => {
+            // Prefer the manual `position` column when present; fall back to
+            // `created_at` so the app still works before the migration runs.
+            if (a.position != null && b.position != null) {
+                return a.position - b.position;
+            }
+            return a.created_at.localeCompare(b.created_at);
+        });
     return [...focusTasks, ...otherTasks];
 }
 
@@ -100,7 +149,7 @@ function orderTaskQueue(rows: TaskRow[]): TaskRow[] {
 export async function fetchPendingTaskQueue(): Promise<TaskItemData[]> {
     const { data, error } = await supabase
         .from('tasks')
-        .select('*, categories(emoji_holder)')
+        .select('*, categories(emoji_holder, cat_name)')
         .eq('status', 'pending')
         .order('created_at', { ascending: true });
 
@@ -110,7 +159,7 @@ export async function fetchPendingTaskQueue(): Promise<TaskItemData[]> {
     }
 
     const rows = (data ?? []) as unknown as TaskRow[];
-    return orderTaskQueue(rows).map(toTaskItemData);
+    return orderTaskQueue(rows).map(toHomeTask);
 }
 
 /**
@@ -132,7 +181,7 @@ export async function completeTask(taskId: string): Promise<void> {
     // Load the current ordered pending queue to find the next task to promote.
     const { data, error: fetchError } = await supabase
         .from('tasks')
-        .select('task_id, is_focus, created_at')
+        .select('task_id, is_focus, created_at, position')
         .eq('status', 'pending')
         .order('created_at', { ascending: true });
 
@@ -141,7 +190,12 @@ export async function completeTask(taskId: string): Promise<void> {
         throw fetchError;
     }
 
-    const rows = (data ?? []) as { task_id: string; is_focus: boolean; created_at: string }[];
+    const rows = (data ?? []) as {
+        task_id: string;
+        is_focus: boolean;
+        created_at: string;
+        position: number | null;
+    }[];
     const ordered = orderTaskQueue(rows as unknown as TaskRow[]);
     const index = ordered.findIndex((r) => r.task_id === taskId);
 
@@ -178,4 +232,132 @@ export async function completeTask(taskId: string): Promise<void> {
             throw promoteError;
         }
     }
+}
+
+/**
+ * Set the given task as the Hero Task (`is_focus` = true).
+ *
+ * Only one task can be the Hero Task at a time, so any task currently flagged
+ * `is_focus` is unset first. Returns the id of the task that was the previous
+ * Hero Task (if any) so the caller can restore it to the queue.
+ */
+export async function setHeroTask(taskId: string): Promise<string | null> {
+    // Find the current Hero Task (if any).
+    const { data, error: fetchError } = await supabase
+        .from('tasks')
+        .select('task_id')
+        .eq('status', 'pending')
+        .eq('is_focus', true);
+
+    if (fetchError) {
+        console.error('Failed to load current hero task:', fetchError.message);
+        throw fetchError;
+    }
+
+    const rows = (data ?? []) as { task_id: string }[];
+    const previousHero = rows.find((r) => r.task_id !== taskId)?.task_id ?? null;
+
+    // Unset the previous hero (if it is a different task) and set the new one.
+    const updates: Promise<unknown>[] = [];
+
+    if (previousHero) {
+        updates.push(
+            supabase
+                .from('tasks')
+                .update({ is_focus: false })
+                .eq('task_id', previousHero)
+        );
+    }
+
+    updates.push(supabase.from('tasks').update({ is_focus: true }).eq('task_id', taskId));
+
+    const results = await Promise.all(updates);
+    const error = results.find((r) => (r as { error?: unknown }).error);
+    if (error) {
+        const err = (error as { error: { message: string } }).error;
+        console.error('Failed to set hero task:', err.message);
+        throw err;
+    }
+
+    return previousHero;
+}
+
+/**
+ * Persist a manual task ordering.
+ *
+ * The `tasks` table stores order via the `position` column. Each task in
+ * `orderedIds` is written with its index as the new `position`, so the order
+ * survives a refresh/reopen. The Hero Task is always kept at the front of the
+ * queue, so the passed list is expected to be the full ordered queue with the
+ * Hero Task first.
+ */
+export async function reorderTasks(orderedIds: string[]): Promise<void> {
+    // Batch updates so a single network round-trip persists the whole order.
+    const updates = orderedIds.map((taskId, index) =>
+        supabase
+            .from('tasks')
+            .update({ position: index })
+            .eq('task_id', taskId)
+    );
+
+    const results = await Promise.all(updates);
+    const error = results.find((r) => (r as { error?: unknown }).error);
+    if (error) {
+        const err = (error as { error: { message: string } }).error;
+        console.error('Failed to reorder tasks:', err.message);
+        throw err;
+    }
+}
+
+/**
+ * Sorting criteria for the Home task queue.
+ * - 'priority' → High → Low
+ * - 'deadline' → Earliest → Latest
+ * - 'category' → A → Z by category title
+ * - 'createdAt' → Newest → Oldest
+ */
+export type HomeSortCriteria = 'priority' | 'deadline' | 'category' | 'createdAt';
+
+/** A fixed rank for each priority level, used to order High → Low. */
+const HOME_PRIORITY_RANK: Record<HomeTask['priority'], number> = {
+    high: 0,
+    medium: 1,
+    low: 2,
+};
+
+/**
+ * Sort the Home task queue (excluding the Hero Task) by the given criterion.
+ *
+ * The Hero Task stays pinned at index 0 regardless of the sort criterion, so
+ * only the "other tasks" portion is reordered. This keeps the low-pressure
+ * hero-first behavior intact.
+ */
+export function sortHomeTasks(
+    tasks: HomeTask[],
+    criteria: HomeSortCriteria
+): HomeTask[] {
+    // Split the Hero Task (is_focus) from the rest.
+    const hero = tasks.filter((t) => t.isFocus);
+    const others = tasks.filter((t) => !t.isFocus);
+
+    const sortedOthers = [...others].sort((a, b) => {
+        switch (criteria) {
+            case 'priority':
+                return HOME_PRIORITY_RANK[a.priority] - HOME_PRIORITY_RANK[b.priority];
+            case 'deadline':
+                // Tasks with no deadline sort last.
+                if (!a.deadline && !b.deadline) return 0;
+                if (!a.deadline) return 1;
+                if (!b.deadline) return -1;
+                return a.deadline.localeCompare(b.deadline);
+            case 'category':
+                return (a.categoryName ?? '').localeCompare(b.categoryName ?? '');
+            case 'createdAt':
+                return b.createdAt.localeCompare(a.createdAt);
+            default:
+                return 0;
+        }
+    });
+
+    return [...hero, ...sortedOthers];
 }

@@ -1,6 +1,7 @@
 import "../../global.css";
 import { Tabs } from 'expo-router';
 import { View, TouchableOpacity, Text, Platform } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useFonts, Fredoka_400Regular, Fredoka_500Medium, Fredoka_600SemiBold, Fredoka_700Bold } from '@expo-google-fonts/fredoka';
 import * as SplashScreen from 'expo-splash-screen';
@@ -60,8 +61,9 @@ export default function AppLayout() {
 
 
     return (
-        <View className="flex-1 mx-1">
-            <Tabs
+        <GestureHandlerRootView style={{ flex: 1 }}>
+            <View className="flex-1 mx-1">
+                <Tabs
                 screenOptions={{
                     headerShown: false,
                     tabBarActiveTintColor: '#3D2E2B',
@@ -142,10 +144,14 @@ export default function AppLayout() {
                 onTaskSaved={() => {
                     setToast({ message: 'Task added successfully!' });
                 }}
+                onHabitSaved={() => {
+                    setToast({ message: 'Habit added successfully!' });
+                }}
             />
 
             {/* Success toast — shown only after a task save succeeds. */}
             <Toast toast={toast} onDismiss={() => setToast(null)} />
-        </View>
+            </View>
+        </GestureHandlerRootView>
     );
 }

@@ -22,6 +22,8 @@ interface AddModalProps {
     onSaved?: () => void;
     /** Called only after a successful TASK save (not habits). */
     onTaskSaved?: () => void;
+    /** Called only after a successful HABIT save (not tasks). */
+    onHabitSaved?: () => void;
 }
 
 type AddType = 'task' | 'habit';
@@ -56,7 +58,7 @@ function todayDateString(): string {
 
 // A modal to add a new Task or Daily Habit. Starts with a choice, then shows the
 // appropriate form. Saving is disabled until required fields are filled.
-export default function AddModal({ visible, onClose, onSaved, onTaskSaved }: AddModalProps) {
+export default function AddModal({ visible, onClose, onSaved, onTaskSaved, onHabitSaved }: AddModalProps) {
     const [step, setStep] = useState<'choose' | 'task' | 'habit'>('choose');
     const [categories, setCategories] = useState<Category[]>([]);
 
@@ -157,6 +159,7 @@ export default function AddModal({ visible, onClose, onSaved, onTaskSaved }: Add
         })
             .then(() => {
                 onSaved?.();
+                onHabitSaved?.();
                 handleClose();
             })
             .catch((err) => {

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, ActivityIndicator } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFonts, Fredoka_400Regular, Fredoka_500Medium, Fredoka_600SemiBold, Fredoka_700Bold } from '@expo-google-fonts/fredoka';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useCallback } from 'react';
@@ -10,8 +11,31 @@ import OtherTasks, { OtherTasksHeader } from '@/components/index_components/othe
 import DailyHabits from '@/components/index_components/daily-habits';
 import { TaskItemData } from '@/components/index_components/task-item';
 import { HabitData } from '@/components/index_components/habit-card';
-import { fetchPendingTaskQueue, completeTask } from '@/dp_operations/home/tasks';
+import Toast, { ToastData } from '@/components/ui/toast';
+import {
+    fetchPendingTaskQueue,
+    completeTask,
+    setHeroTask,
+    reorderTasks,
+    sortHomeTasks,
+    HomeTask,
+    HomeSortCriteria,
+} from '@/dp_operations/home/tasks';
 import { fetchTodayHabits, logHabitCompletion } from '@/dp_operations/home/habits';
+
+// Storage key for the persisted sort preference. This is a client-side UI
+// preference, so AsyncStorage (already used in the app) is the right place.
+const SORT_CRITERIA_KEY = 'unti-unti:home-sort-criteria';
+
+// The valid sort criteria, used to validate a value loaded from storage.
+const SORT_CRITERIA_VALUES: HomeSortCriteria[] = ['priority', 'deadline', 'category', 'createdAt'];
+
+/** Safely coerce an unknown stored value into a valid sort criterion. */
+function parseSortCriteria(value: unknown): HomeSortCriteria {
+    return SORT_CRITERIA_VALUES.includes(value as HomeSortCriteria)
+        ? (value as HomeSortCriteria)
+        : 'priority';
+}
 
 export default function HomeScreen() {
 	const [fontsLoaded] = useFonts({
@@ -23,8 +47,14 @@ export default function HomeScreen() {
 
 	// The ordered task queue. Index 0 is the current Hero Task.
 	// Loaded from the Supabase `tasks` table (status = 'pending').
-	const [taskQueue, setTaskQueue] = useState<TaskItemData[]>([]);
+	const [taskQueue, setTaskQueue] = useState<HomeTask[]>([]);
 	const [tasksLoading, setTasksLoading] = useState(true);
+
+	// Whether the "Other tasks" section is in edit mode (drag + hero selection).
+	const [editMode, setEditMode] = useState(false);
+	// Active sort criterion for the "Other tasks" queue. Loaded from storage on
+	// mount so the user's preference survives a refresh/reopen.
+	const [sortCriteria, setSortCriteria] = useState<HomeSortCriteria>('priority');
 
 	// Daily habits — loaded from the Supabase `habits` table (not yet completed today).
 	const [habits, setHabits] = useState<HabitData[]>([]);
@@ -33,11 +63,38 @@ export default function HomeScreen() {
 	// Whether the "Other tasks" queue is expanded. Controls scrollability below.
 	const [otherTasksExpanded, setOtherTasksExpanded] = useState(false);
 
+	// Success toast feedback for daily habit completion.
+	const [toast, setToast] = useState<ToastData | null>(null);
+
 	useEffect(() => {
 		if (fontsLoaded) {
 			SplashScreen.hideAsync();
 		}
 	}, [fontsLoaded]);
+
+	// Load the persisted sort criterion when the screen mounts.
+	useEffect(() => {
+		let active = true;
+		AsyncStorage.getItem(SORT_CRITERIA_KEY)
+			.then((stored) => {
+				if (active && stored) {
+					setSortCriteria(parseSortCriteria(stored));
+				}
+			})
+			.catch((err) => {
+				console.error('Failed to load sort preference:', err);
+			});
+		return () => {
+			active = false;
+		};
+	}, []);
+
+	// Persist the sort criterion whenever it changes.
+	useEffect(() => {
+		AsyncStorage.setItem(SORT_CRITERIA_KEY, sortCriteria).catch((err) => {
+			console.error('Failed to save sort preference:', err);
+		});
+	}, [sortCriteria]);
 
 	// Load the pending task queue from Supabase whenever the screen gains focus
 	// (so newly created tasks appear after the Add modal closes).
@@ -89,9 +146,11 @@ export default function HomeScreen() {
 	}
 
 	// The Hero Task is always the first item in the queue (next in line).
-	const heroTask = taskQueue[0];
+	// The remaining tasks are sorted according to the active sort criterion.
+	const sortedQueue = sortHomeTasks(taskQueue, sortCriteria);
+	const heroTask = sortedQueue[0];
 	// The remaining tasks form the "Other tasks" queue, in order.
-	const otherTasks = taskQueue.slice(1);
+	const otherTasks = sortedQueue.slice(1);
 
 	// Completing the Hero Task promotes the next task in line.
 	const handleHeroComplete = (task: TaskItemData) => {
@@ -121,6 +180,50 @@ export default function HomeScreen() {
 			});
 	};
 
+	// Toggle edit mode for the Other tasks section.
+	const handleToggleEdit = () => {
+		setEditMode((prev) => !prev);
+	};
+
+	// Change the active sort criterion for the Other tasks queue.
+	const handleChangeSort = (criteria: HomeSortCriteria) => {
+		setSortCriteria(criteria);
+	};
+
+	// Make the given task the Hero Task. Persists `is_focus` to Supabase.
+	const handleMakeHero = (task: TaskItemData) => {
+		setHeroTask(task.id)
+			.then(() => {
+				// The DB now has exactly one `is_focus` task. Refetch so the
+				// queue reflects the new hero + the previous hero rejoins it.
+				return fetchPendingTaskQueue().then((tasks) => {
+					setTaskQueue(tasks as HomeTask[]);
+				});
+			})
+			.catch((err) => {
+				console.error('Failed to set hero task:', err);
+			});
+	};
+
+	// Persist a manual drag reorder of the full queue (hero first).
+	const handleReorder = (orderedOtherIds: string[]) => {
+		// The Hero Task stays pinned at the front of the queue, so prepend it
+		// to the reordered "other tasks" before persisting the full order.
+		const fullOrder = heroTask ? [heroTask.id, ...orderedOtherIds] : orderedOtherIds;
+		reorderTasks(fullOrder)
+			.then(() => {
+				// Reorder the local queue to match the persisted order.
+				setTaskQueue((prev) =>
+					fullOrder
+						.map((id) => prev.find((t) => t.id === id))
+						.filter((t): t is HomeTask => !!t)
+				);
+			})
+			.catch((err) => {
+				console.error('Failed to reorder tasks:', err);
+			});
+	};
+
 	const handleToggleHabit = (habit: HabitData) => {
 		// Persist completion through the `habit_logs` table (database-backed).
 		// Only update the frontend once the write succeeds.
@@ -128,6 +231,7 @@ export default function HomeScreen() {
 			.then(() => {
 				// Remove it from the Daily Habits list once logged successfully.
 				setHabits((prev) => prev.filter((h) => h.id !== habit.id));
+				setToast({ message: 'Habit completed!' });
 			})
 			.catch((err) => {
 				console.error('Failed to complete habit:', err);
@@ -172,10 +276,15 @@ export default function HomeScreen() {
 				)}
 			</View>
 
-			{/* Other tasks title + edit button — fixed (hidden when no other tasks remain) */}
+			{/* Other tasks title + sort + edit button — fixed (hidden when no other tasks remain) */}
 			{!tasksLoading && otherTasks.length > 0 && (
 				<View className="mt-8">
-					<OtherTasksHeader />
+					<OtherTasksHeader
+						editMode={editMode}
+						onToggleEdit={handleToggleEdit}
+						sortCriteria={sortCriteria}
+						onChangeSort={handleChangeSort}
+					/>
 				</View>
 			)}
 
@@ -193,6 +302,10 @@ export default function HomeScreen() {
 						onToggleTask={handleToggleTask}
 						expanded={otherTasksExpanded}
 						onToggleExpanded={() => setOtherTasksExpanded((prev) => !prev)}
+						editMode={editMode}
+						sortCriteria={sortCriteria}
+						onMakeHero={handleMakeHero}
+						onReorder={handleReorder}
 					/>
 				)}
 
@@ -204,6 +317,9 @@ export default function HomeScreen() {
 					/>
 				)}
 			</ScrollView>
+
+			{/* Success toast for daily habit completion. */}
+			<Toast toast={toast} onDismiss={() => setToast(null)} />
 		</View>
 	);
 }

@@ -25,7 +25,7 @@ export default function ProfileScreen() {
     return (
         <View className="flex-1 bg-cozyBg pt-14 px-5">
             <Text className="text-4xl font-fredoka-semibold font-bold text-deepBrown">
-                Profile Settings 👤
+                Profile Settings
             </Text>
         </View>
     );
