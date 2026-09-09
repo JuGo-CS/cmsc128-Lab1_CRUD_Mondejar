@@ -8,9 +8,11 @@
     "scheme": "untiunti",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "icon": "./assets/expo.icon",
+      "bundleIdentifier": "com.ju_go.untiunti"
     },
     "android": {
+      "package": "com.ju_go.untiunti",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -38,6 +40,21 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "updates": {
+      "url": "https://u.expo.dev/853c6537-b0aa-42ea-89ae-7c44ae98ee26",
+      "enabled": true,
+      "fallbackToCacheTimeout": 30000
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "853c6537-b0aa-42ea-89ae-7c44ae98ee26"
+      }
+    },
+    "owner": "ju_go"
   }
 }

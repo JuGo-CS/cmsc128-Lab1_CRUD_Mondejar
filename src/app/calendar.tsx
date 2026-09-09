@@ -12,7 +12,7 @@ import EditTreasureModal from '@/components/wins_components/edit-treasure-modal'
 import DeleteTreasureModal from '@/components/wins_components/delete-treasure-modal';
 import WinsCalendarModal from '@/components/wins_components/wins-calendar-modal';
 import Toast, { ToastData } from '@/components/ui/toast';
-import { fetchPendingTaskQueue, sortHomeTasks, restoreTask, restoreTaskSnapshot, homeTaskToSnapshot, TaskSnapshot, HomeTask, HomeSortCriteria } from '@/dp_operations/home/tasks';
+import { fetchPendingTaskQueue, sortHomeTasks, restoreTask, restoreTaskSnapshot, homeTaskToSnapshot, undoCompleteTask, TaskSnapshot, HomeTask, HomeSortCriteria } from '@/dp_operations/home/tasks';
 import { filterTasksByDate, filterTasks, CalendarFilterCriteria } from '@/dp_operations/calendar/tasks';
 import { completeTask } from '@/dp_operations/home/tasks';
 import { fetchCategories, updateTreasure, deleteTreasure, Category, TreasureLog } from '@/dp_operations/wins/treasures';
@@ -153,10 +153,29 @@ export default function CalendarScreen() {
 
     // Mark a task as completed (goes to Treasures via the existing logic).
     const handleCompleteTask = (task: HomeTask) => {
+        // Capture whether the task was the Hero so Undo can restore it.
+        const wasHero = task.isFocus === true;
         completeTask(task.id)
             .then(() => {
                 setTasks((prev) => prev.filter((t) => t.id !== task.id));
-                setToast({ message: 'Task completed!' });
+                setToast({
+                    message: 'Task completed!',
+                    undoLabel: 'Undo',
+                    onUndo: () => {
+                        // Reuse the centralized completion undo: restore the task
+                        // to its previous state, then refetch the filtered view.
+                        undoCompleteTask(task.id, wasHero)
+                            .then(() => refreshTasks())
+                            .then(() => {
+                                setToast({ message: 'Task restored.' });
+                                emitTaskDataChanged();
+                            })
+                            .catch((err) => {
+                                console.error('Failed to undo task completion:', err);
+                                setToast({ message: 'Could not undo. Please try again.' });
+                            });
+                    },
+                });
                 emitTaskDataChanged();
             })
             .catch((err) => {
