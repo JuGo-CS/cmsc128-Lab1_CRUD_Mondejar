@@ -189,7 +189,7 @@ export default function CalendarTaskCard({
                 />
             </TouchableOpacity>
 
-            {/* Bottom section — tap to expand details */}
+            {/* Bottom section — tap to expand/collapse details */}
             <TouchableOpacity
                 onPress={() => setExpanded((prev) => !prev)}
                 activeOpacity={0.8}
@@ -200,7 +200,7 @@ export default function CalendarTaskCard({
                     {detail}
                 </Text>
                 <Ionicons
-                    name={expanded ? 'chevron-up' : 'chevron-down'}
+                    name={expanded ? 'arrow-up' : 'arrow-down'}
                     size={18}
                     color="#3D2E2B"
                     className='-bottom-1'
@@ -209,11 +209,66 @@ export default function CalendarTaskCard({
 
             {/* Expanded details */}
             {expanded && (
-                <View className="px-4 py-3 bg-habitCard border-t border-white/50 -mt-3 z-0">
-                    <Text className="text-sm font-fredoka text-mutedBrown -bottom-1">
+                <View className="px-4 pt-3 pb-4 bg-cardBg border-t border-white/50 -mt-3 z-0">
+                    {/* Description */}
+                    <Text className="text-sm font-fredoka text-deepBrown leading-relaxed">
                         {task.description || 'No description.'}
                     </Text>
+
+                    {/* Subtle separator */}
+                    <View className="h-[1px] bg-deepBrown/10 my-3" />
+
+                    {/* Details grid */}
+                    <View className="gap-y-2.5">
+                        <DetailRow label="Status" value={task.completed ? 'Completed' : 'Pending'} />
+                        <DetailRow
+                            label="Category"
+                            value={task.categoryName ?? 'None'}
+                        />
+                        <DetailRow
+                            label="Deadline"
+                            value={task.deadline ? formatDeadline(task) : 'None'}
+                        />
+                        <DetailRow
+                            label="Priority"
+                            value={PRIORITY_STYLES[task.priority].label}
+                            accent={PRIORITY_STYLES[task.priority].bg}
+                        />
+                    </View>
                 </View>
+            )}
+        </View>
+    );
+}
+
+// A single label/value row in the task-details section.
+function DetailRow({
+    label,
+    value,
+    accent,
+}: {
+    label: string;
+    value: string;
+    accent?: string;
+}) {
+    return (
+        <View className="flex-row items-center justify-between">
+            <Text className="text-sm font-fredoka-semibold text-mutedBrown">
+                {label}
+            </Text>
+            {accent ? (
+                <View
+                    className="px-2.5 py-1 rounded-lg"
+                    style={{ backgroundColor: accent }}
+                >
+                    <Text className="text-sm font-fredoka-semibold text-deepBrown">
+                        {value}
+                    </Text>
+                </View>
+            ) : (
+                <Text className="text-sm font-fredoka-semibold text-deepBrown">
+                    {value}
+                </Text>
             )}
         </View>
     );
