@@ -352,9 +352,11 @@ export default function AddModal({ visible, onClose, onSaved }: AddModalProps) {
                                         onPress={handleSaveTask}
                                         activeOpacity={0.85}
                                         disabled={saving}
-                                        className={`mt-2 rounded-xl py-4 items-center justify-center bg-cozyBg border border-white/50`}
+                                        className={`mt-2 rounded-xl py-4 items-center justify-center bg-focusHero shadow-sm ${
+                                            saving ? 'opacity-60' : ''
+                                        }`}
                                     >
-                                        <Text className="text-lg font-fredoka-bold text-deepBrown">
+                                        <Text className="text-lg font-fredoka-bold text-white">
                                             {saving ? 'Saving...' : 'Save Task'}
                                         </Text>
                                     </TouchableOpacity>
@@ -416,11 +418,11 @@ export default function AddModal({ visible, onClose, onSaved }: AddModalProps) {
                                         onPress={handleSaveHabit}
                                         activeOpacity={0.85}
                                         disabled={!canSaveHabit || saving}
-                                        className={`mt-2 rounded-xl py-4 items-center justify-center ${
-                                            canSaveHabit && !saving ? 'bg-cozyBg border border-white/50' : 'bg-cardBg'
+                                        className={`mt-2 rounded-xl py-4 items-center justify-center bg-focusHero shadow-sm ${
+                                            !canSaveHabit || saving ? 'opacity-60' : ''
                                         }`}
                                     >
-                                        <Text className="text-lg font-fredoka-bold text-deepBrown">
+                                        <Text className="text-lg font-fredoka-bold text-white">
                                             {saving ? 'Saving...' : 'Save Habit'}
                                         </Text>
                                     </TouchableOpacity>
