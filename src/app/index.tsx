@@ -212,6 +212,7 @@ export default function HomeScreen() {
 					const nextQueue = tasks as HomeTask[];
 					setTaskQueue(nextQueue);
 					return syncPositions(nextQueue, sortCriteria).then(() => {
+						setToast({ message: 'Task complete! One less thing to worry about.' });
 						emitTaskDataChanged();
 					});
 				});
@@ -232,6 +233,7 @@ export default function HomeScreen() {
 					const nextQueue = tasks as HomeTask[];
 					setTaskQueue(nextQueue);
 					return syncPositions(nextQueue, sortCriteria).then(() => {
+						setToast({ message: 'Task complete! One less thing to worry about.' });
 						emitTaskDataChanged();
 					});
 				});
