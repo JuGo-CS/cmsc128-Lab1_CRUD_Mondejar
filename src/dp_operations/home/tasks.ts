@@ -28,12 +28,20 @@ interface TaskRow {
 /**
  * A pending task with the extra metadata the Home screen needs for sorting,
  * manual reordering, and Hero Task selection. This is the UI-facing shape.
+ * It also carries the fields the Calendar needs so Calendar can render the
+ * same global queue as a filtered view.
  */
 export interface HomeTask extends TaskItemData {
+    /** The task's description, or null. */
+    description: string | null;
+    /** The category id, or null. */
+    catId: string | null;
     /** Priority from `tasks.priority`: 'high' | 'medium' | 'low'. */
     priority: 'high' | 'medium' | 'low';
     /** Deadline date as `YYYY-MM-DD`, or null if the task has no deadline. */
     deadline: string | null;
+    /** Deadline time as `HH:MM`, or null if the task has no deadline/time. */
+    deadlineTime: string | null;
     /** Category name from `categories.cat_name`, used for category sorting. */
     categoryName: string | null;
     /** When the task was created, used for time-added sorting. */
@@ -102,6 +110,13 @@ function normalizeDate(value: string | null): string | null {
     return /^\d{4}-\d{2}-\d{2}$/.test(datePart) ? datePart : null;
 }
 
+/** Extract a `HH:MM` time from a deadline value, or null if none is present. */
+function extractTime(value: string | null): string | null {
+    if (!value) return null;
+    const match = value.match(/(\d{2}):(\d{2})/);
+    return match ? `${match[1]}:${match[2]}` : null;
+}
+
 /** Convert a raw tasks row into the `HomeTask` shape the UI expects. */
 function toHomeTask(row: TaskRow): HomeTask {
     return {
@@ -109,8 +124,11 @@ function toHomeTask(row: TaskRow): HomeTask {
         title: row.title,
         iconName: iconForEmoji(row.categories?.emoji_holder),
         completed: row.status === 'completed',
+        description: row.description,
+        catId: row.cat_id,
         priority: normalizePriority(row.priority),
         deadline: normalizeDate(row.deadline),
+        deadlineTime: extractTime(row.deadline),
         categoryName: row.categories?.cat_name ?? null,
         createdAt: row.created_at,
         position: row.position,

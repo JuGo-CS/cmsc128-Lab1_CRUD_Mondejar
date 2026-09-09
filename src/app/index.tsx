@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, ActivityIndicator, RefreshControl } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFonts, Fredoka_400Regular, Fredoka_500Medium, Fredoka_600SemiBold, Fredoka_700Bold } from '@expo-google-fonts/fredoka';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useCallback } from 'react';
 import { useFocusEffect } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { subscribeToTaskChanges, emitTaskDataChanged } from '@/lib/data-events';
+import { getHomeSortCriteria, setHomeSortCriteria } from '@/lib/home-sort';
 import HeroCard from '@/components/index_components/hero-card';
 import OtherTasks, { OtherTasksHeader } from '@/components/index_components/other-tasks';
 import DailyHabits from '@/components/index_components/daily-habits';
@@ -23,21 +23,6 @@ import {
     HomeSortCriteria,
 } from '@/dp_operations/home/tasks';
 import { fetchTodayHabits, logHabitCompletion } from '@/dp_operations/home/habits';
-
-// Storage key for the persisted sort preference. This is a client-side UI
-// preference, so AsyncStorage (already used in the app) is the right place.
-const SORT_CRITERIA_KEY = 'unti-unti:home-sort-criteria';
-
-// The valid sort criteria, used to validate a value loaded from storage.
-// 'manual' (the default position order) is included so it survives a reload.
-const SORT_CRITERIA_VALUES: HomeSortCriteria[] = ['manual', 'priority', 'deadline', 'category', 'createdAt'];
-
-/** Safely coerce an unknown stored value into a valid sort criterion. */
-function parseSortCriteria(value: unknown): HomeSortCriteria {
-    return SORT_CRITERIA_VALUES.includes(value as HomeSortCriteria)
-        ? (value as HomeSortCriteria)
-        : 'manual';
-}
 
 export default function HomeScreen() {
 	const [fontsLoaded] = useFonts({
@@ -81,15 +66,9 @@ export default function HomeScreen() {
 	// Load the persisted sort criterion when the screen mounts.
 	useEffect(() => {
 		let active = true;
-		AsyncStorage.getItem(SORT_CRITERIA_KEY)
-			.then((stored) => {
-				if (active && stored) {
-					setSortCriteria(parseSortCriteria(stored));
-				}
-			})
-			.catch((err) => {
-				console.error('Failed to load sort preference:', err);
-			});
+		getHomeSortCriteria().then((criteria) => {
+			if (active) setSortCriteria(criteria);
+		});
 		return () => {
 			active = false;
 		};
@@ -97,9 +76,7 @@ export default function HomeScreen() {
 
 	// Persist the sort criterion whenever it changes.
 	useEffect(() => {
-		AsyncStorage.setItem(SORT_CRITERIA_KEY, sortCriteria).catch((err) => {
-			console.error('Failed to save sort preference:', err);
-		});
+		setHomeSortCriteria(sortCriteria);
 	}, [sortCriteria]);
 
 	// Refetch the pending task queue from Supabase (source of truth). Used on
@@ -226,10 +203,11 @@ export default function HomeScreen() {
 	};
 
 	// Change the active sort criterion for the Other tasks queue.
-	// The new sorted order of the non-Hero tasks is persisted to `position`.
+	// The new sorted order of the non-Hero tasks is persisted to `position`,
+	// and the sort mode is persisted so Calendar reflects the same mode.
 	const handleChangeSort = (criteria: HomeSortCriteria) => {
 		setSortCriteria(criteria);
-		syncPositions(taskQueue, criteria)
+		Promise.all([setHomeSortCriteria(criteria), syncPositions(taskQueue, criteria)])
 			.then(() => {
 				emitTaskDataChanged();
 			})

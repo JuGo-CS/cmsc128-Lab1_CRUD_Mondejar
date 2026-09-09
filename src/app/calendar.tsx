@@ -5,20 +5,22 @@ import * as SplashScreen from 'expo-splash-screen';
 import { useFocusEffect } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { subscribeToTaskChanges, emitTaskDataChanged } from '@/lib/data-events';
+import { getHomeSortCriteria } from '@/lib/home-sort';
 import CalendarTaskCard from '@/components/calendar_components/calendar-task-card';
 import SortControl from '@/components/calendar_components/sort-control';
 import EditTreasureModal from '@/components/wins_components/edit-treasure-modal';
 import DeleteTreasureModal from '@/components/wins_components/delete-treasure-modal';
 import WinsCalendarModal from '@/components/wins_components/wins-calendar-modal';
 import Toast, { ToastData } from '@/components/ui/toast';
-import { fetchTasksForDate, CalendarTask, SortCriteria, sortTasks } from '@/dp_operations/calendar/tasks';
+import { fetchPendingTaskQueue, sortHomeTasks, HomeTask, HomeSortCriteria } from '@/dp_operations/home/tasks';
+import { filterTasksByDate } from '@/dp_operations/calendar/tasks';
 import { completeTask } from '@/dp_operations/home/tasks';
 import { fetchCategories, updateTreasure, deleteTreasure, Category, TreasureLog } from '@/dp_operations/wins/treasures';
 
-// Map a CalendarTask to the TreasureLog shape the Wins edit/delete modals expect.
+// Map a HomeTask to the TreasureLog shape the Wins edit/delete modals expect.
 // The modals only read id/title/description/catId; completedDate/Time are unused
 // in the edit/delete flows, so we supply empty placeholders.
-function toTreasureLog(task: CalendarTask): TreasureLog {
+function toTreasureLog(task: HomeTask): TreasureLog {
     return {
         id: task.id,
         title: task.title,
@@ -57,21 +59,22 @@ export default function CalendarScreen() {
         Fredoka_700Bold,
     });
 
-    const [tasks, setTasks] = useState<CalendarTask[]>([]);
+    // The global task queue (Home owns ordering). Calendar is a filtered view.
+    const [tasks, setTasks] = useState<HomeTask[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
-    const [criteria, setCriteria] = useState<SortCriteria>('priority');
-    const [ascending, setAscending] = useState(true);
+    // The global sort mode, owned by Home. Calendar only reflects it.
+    const [sortCriteria, setSortCriteria] = useState<HomeSortCriteria>('manual');
     const [editMode, setEditMode] = useState(false);
     const [selectedDate, setSelectedDate] = useState<string>(todayDateString());
     const [calendarVisible, setCalendarVisible] = useState(false);
 
     // Edit / delete modal state (reuses the Wins tab flow).
-    const [editingTask, setEditingTask] = useState<CalendarTask | null>(null);
+    const [editingTask, setEditingTask] = useState<HomeTask | null>(null);
     const [editModalVisible, setEditModalVisible] = useState(false);
     const [categories, setCategories] = useState<Category[]>([]);
     const [saving, setSaving] = useState(false);
-    const [deletingTask, setDeletingTask] = useState<CalendarTask | null>(null);
+    const [deletingTask, setDeletingTask] = useState<HomeTask | null>(null);
     const [deleteModalVisible, setDeleteModalVisible] = useState(false);
     const [deleting, setDeleting] = useState(false);
 
@@ -84,12 +87,15 @@ export default function CalendarScreen() {
         }
     }, [fontsLoaded]);
 
-    // Refetch the tasks for the selected date from Supabase (source of truth).
-    // Used on focus, on pull-to-refresh, and when task data changes elsewhere.
+    // Refetch the global queue from Supabase, apply the current Home sort mode,
+    // then filter by the selected date. Calendar is a filtered view of the
+    // global queue — it never reorders or re-sorts independently.
     const refreshTasks = useCallback(() => {
-        return fetchTasksForDate(selectedDate)
-            .then((data) => {
-                setTasks(data);
+        return Promise.all([fetchPendingTaskQueue(), getHomeSortCriteria()])
+            .then(([queue, sortMode]) => {
+                setSortCriteria(sortMode);
+                const sorted = sortHomeTasks(queue as HomeTask[], sortMode);
+                setTasks(filterTasksByDate(sorted, selectedDate));
             })
             .catch((err) => {
                 console.error('Failed to load tasks for date:', err);
@@ -134,7 +140,7 @@ export default function CalendarScreen() {
     }, []);
 
     // Mark a task as completed (goes to Treasures via the existing logic).
-    const handleCompleteTask = (task: CalendarTask) => {
+    const handleCompleteTask = (task: HomeTask) => {
         completeTask(task.id)
             .then(() => {
                 setTasks((prev) => prev.filter((t) => t.id !== task.id));
@@ -147,7 +153,7 @@ export default function CalendarScreen() {
     };
 
     // Open the edit modal for a task.
-    const handleEditTask = (task: CalendarTask) => {
+    const handleEditTask = (task: HomeTask) => {
         setEditingTask(task);
         setEditModalVisible(true);
     };
@@ -166,8 +172,7 @@ export default function CalendarScreen() {
                 setEditModalVisible(false);
                 setEditingTask(null);
                 setToast({ message: 'Task updated!' });
-                return fetchTasksForDate(selectedDate).then((data) => {
-                    setTasks(data);
+                return refreshTasks().then(() => {
                     emitTaskDataChanged();
                 });
             })
@@ -180,13 +185,13 @@ export default function CalendarScreen() {
     };
 
     // Open the delete confirmation for a task.
-    const handleDeleteTask = (task: CalendarTask) => {
+    const handleDeleteTask = (task: HomeTask) => {
         setDeletingTask(task);
         setDeleteModalVisible(true);
     };
 
     // Confirm the permanent deletion, then refresh the queue.
-    const handleConfirmDelete = (task: CalendarTask) => {
+    const handleConfirmDelete = (task: HomeTask) => {
         setDeleting(true);
         deleteTreasure(task.id)
             .then(() => {
@@ -208,8 +213,7 @@ export default function CalendarScreen() {
         return null;
     }
 
-    // Pull-to-refresh: refetch tasks for the selected date, guarding against
-    // duplicate runs.
+    // Pull-to-refresh: refetch the global queue, guarding against duplicate runs.
     const handleRefresh = useCallback(() => {
         if (refreshing) return;
         setRefreshing(true);
@@ -217,9 +221,6 @@ export default function CalendarScreen() {
             setRefreshing(false);
         });
     }, [refreshing, refreshTasks]);
-
-    // Apply the current sort criteria + direction to the fetched tasks.
-    const sortedTasks = sortTasks(tasks, criteria, ascending);
 
     return (
         <View className="flex-1 bg-cozyBg pt-14 px-5">
@@ -262,14 +263,9 @@ export default function CalendarScreen() {
                     </TouchableOpacity>
                 </View>
 
-                {/* Sort control header */}
+                {/* Sort control header — reflects the global Home sort mode */}
                 <View className="flex-row items-center justify-between mt-8 mb-4">
-                    <SortControl
-                        criteria={criteria}
-                        ascending={ascending}
-                        onChangeCriteria={setCriteria}
-                        onToggleDirection={() => setAscending((prev) => !prev)}
-                    />
+                    <SortControl criteria={sortCriteria} />
                     <TouchableOpacity
                         onPress={() => setEditMode((prev) => !prev)}
                         activeOpacity={0.7}
@@ -288,16 +284,16 @@ export default function CalendarScreen() {
                     <Text className="text-base font-fredoka text-mutedBrown">
                         Loading your queue...
                     </Text>
-                ) : sortedTasks.length === 0 ? (
+                ) : tasks.length === 0 ? (
                     <Text className="text-base font-fredoka text-mutedBrown">
                         Nothing in your queue for this day. Enjoy the calm!
                     </Text>
                 ) : (
-                    sortedTasks.map((task) => (
+                    tasks.map((task) => (
                         <CalendarTaskCard
                             key={task.id}
                             task={task}
-                            sortCriteria={criteria}
+                            sortCriteria={sortCriteria}
                             editMode={editMode}
                             onToggle={handleCompleteTask}
                             onEdit={handleEditTask}
