@@ -37,6 +37,29 @@ function formatDate(dateStr: string | null): string {
     });
 }
 
+/** Format a `HH:MM` time into a 12-hour label like "5:00 P.M.". */
+function formatTime(timeStr: string | null): string {
+    if (!timeStr) return '';
+    const [hours, minutes] = timeStr.split(':').map(Number);
+    if (isNaN(hours) || isNaN(minutes)) return '';
+    const date = new Date();
+    date.setHours(hours, minutes, 0, 0);
+    const formatted = date.toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+    });
+    // "5:00 PM" → "5:00 P.M."
+    return formatted.replace(/\s?(AM|PM)/i, (_, m) => ` ${m.toUpperCase()}.`);
+}
+
+/** Format a deadline into "Sep 12, 2026 @ 5:00 P.M." (or just the date if no time). */
+function formatDeadline(task: CalendarTask): string {
+    const datePart = formatDate(task.deadline);
+    const timePart = formatTime(task.deadlineTime);
+    return timePart ? `${datePart} @ ${timePart}` : datePart;
+}
+
 /** Format a `created_at` timestamp into a short friendly label like "Sep 9, 2026". */
 function formatCreatedAt(createdAt: string): string {
     const date = new Date(createdAt);
@@ -54,7 +77,7 @@ function detailForCriteria(task: CalendarTask, criteria: SortCriteria): string {
         case 'priority':
             return PRIORITY_STYLES[task.priority].label;
         case 'deadline':
-            return formatDate(task.deadline);
+            return formatDeadline(task);
         case 'category':
             return task.categoryName ?? 'No category';
         case 'createdAt':

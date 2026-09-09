@@ -13,8 +13,10 @@ export interface CalendarTask {
     iconName: keyof typeof Ionicons.glyphMap;
     /** Priority from `tasks.priority`: 'high' | 'medium' | 'low'. */
     priority: 'high' | 'medium' | 'low';
-    /** Deadline as `YYYY-MM-DD`, or null if the task has no deadline. */
+    /** Deadline date as `YYYY-MM-DD`, or null if the task has no deadline. */
     deadline: string | null;
+    /** Deadline time as `HH:MM`, or null if the task has no deadline/time. */
+    deadlineTime: string | null;
     /** Category name from `categories.cat_name`, used for sorting by category. */
     categoryName: string | null;
     /** When the task was created, used for sorting by time added. */
@@ -83,6 +85,19 @@ function normalizeDate(value: string | null): string | null {
 }
 
 /**
+ * Extract a `HH:MM` time from a deadline value.
+ *
+ * Deadlines may be stored as a full timestamp (e.g. `2026-09-12 19:30:00+00`),
+ * a bare date (`2026-09-12`), or an ISO string. We extract the HH:MM portion so
+ * the UI can display the deadline time. Returns null if no time is present.
+ */
+function extractTime(value: string | null): string | null {
+    if (!value) return null;
+    const match = value.match(/(\d{2}):(\d{2})/);
+    return match ? `${match[1]}:${match[2]}` : null;
+}
+
+/**
  * Normalize a priority value from `tasks.priority` into a known label.
  * The schema stores priority as a varchar; we map it to a known union.
  * Unknown/missing values fall back to 'low'.
@@ -103,6 +118,7 @@ function toCalendarTask(row: TaskRow): CalendarTask {
         iconName: iconForEmoji(row.categories?.emoji_holder),
         priority: normalizePriority(row.priority),
         deadline: normalizeDate(row.deadline),
+        deadlineTime: extractTime(row.deadline),
         categoryName: row.categories?.cat_name ?? null,
         createdAt: row.created_at,
         completed: row.status === 'completed',
