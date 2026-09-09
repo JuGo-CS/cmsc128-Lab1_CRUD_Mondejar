@@ -49,6 +49,7 @@ export default function AddModal({ visible, onClose, onSaved }: AddModalProps) {
 
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [titleError, setTitleError] = useState<string | null>(null);
 
     // Fetch categories when the modal opens.
     useEffect(() => {
@@ -73,6 +74,7 @@ export default function AddModal({ visible, onClose, onSaved }: AddModalProps) {
             setHabitTitle('');
             setHabitCatId(null);
             setError(null);
+            setTitleError(null);
         }
     }, [visible]);
 
@@ -85,7 +87,13 @@ export default function AddModal({ visible, onClose, onSaved }: AddModalProps) {
     const canSaveHabit = habitTitle.trim().length > 0;
 
     const handleSaveTask = () => {
-        if (!canSaveTask || saving) return;
+        if (saving) return;
+        // Validate the title — show a friendly message and keep the modal open.
+        if (!canSaveTask) {
+            setTitleError('Please enter a task title before saving.');
+            return;
+        }
+        setTitleError(null);
         setSaving(true);
         setError(null);
         createTask({
@@ -208,11 +216,21 @@ export default function AddModal({ visible, onClose, onSaved }: AddModalProps) {
                                     <Text className="text-sm font-fredoka-semibold text-mutedBrown mb-2">Title</Text>
                                     <TextInput
                                         value={title}
-                                        onChangeText={setTitle}
+                                        onChangeText={(text) => {
+                                            setTitle(text);
+                                            if (titleError) setTitleError(null);
+                                        }}
                                         placeholder="What needs to be done?"
                                         placeholderTextColor="#7D6E6B"
-                                        className="bg-cardBg rounded-xl px-4 py-3 text-base font-fredoka text-deepBrown mb-4"
+                                        className={`bg-cardBg rounded-xl px-4 py-3 text-base font-fredoka text-deepBrown mb-2 ${
+                                            titleError ? 'border border-[#C0392B]' : ''
+                                        }`}
                                     />
+                                    {titleError && (
+                                        <Text className="text-sm font-fredoka text-[#C0392B] mb-4">
+                                            {titleError}
+                                        </Text>
+                                    )}
 
                                     <Text className="text-sm font-fredoka-semibold text-mutedBrown mb-2">Description</Text>
                                     <TextInput
@@ -289,10 +307,8 @@ export default function AddModal({ visible, onClose, onSaved }: AddModalProps) {
                                     <TouchableOpacity
                                         onPress={handleSaveTask}
                                         activeOpacity={0.85}
-                                        disabled={!canSaveTask || saving}
-                                        className={`mt-2 rounded-xl py-4 items-center justify-center ${
-                                            canSaveTask && !saving ? 'bg-cozyBg border border-white/50' : 'bg-cardBg'
-                                        }`}
+                                        disabled={saving}
+                                        className={`mt-2 rounded-xl py-4 items-center justify-center bg-cozyBg border border-white/50`}
                                     >
                                         <Text className="text-lg font-fredoka-bold text-deepBrown">
                                             {saving ? 'Saving...' : 'Save Task'}
