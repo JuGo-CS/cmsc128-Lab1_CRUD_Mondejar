@@ -177,7 +177,7 @@ export default function HomeScreen() {
 			<ScrollView
 				className="flex-1"
 				showsVerticalScrollIndicator={false}
-				scrollEnabled={otherTasksExpanded}
+				// scrollEnabled={otherTasksExpanded}
 				contentContainerStyle={{ paddingBottom: 120 }}
 			>
 				{/* Other tasks — stacked queue preview with expand/collapse */}
