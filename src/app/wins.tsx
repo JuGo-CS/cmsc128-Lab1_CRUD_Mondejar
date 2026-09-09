@@ -8,6 +8,7 @@ import TreasureDateSection from '@/components/wins_components/treasure-date-sect
 import WinsCalendarModal from '@/components/wins_components/wins-calendar-modal';
 import EditTreasureModal from '@/components/wins_components/edit-treasure-modal';
 import DeleteTreasureModal from '@/components/wins_components/delete-treasure-modal';
+import Toast, { ToastData } from '@/components/ui/toast';
 import { fetchTreasureGroups, TreasureGroup, TreasureLog, deleteTreasure, fetchCategories, updateTreasure, Category } from '@/dp_operations/wins/treasures';
 
 // Placeholder treasure groups used when the database fetch hasn't loaded yet.
@@ -65,6 +66,9 @@ export default function WinsScreen() {
     const [deletingLog, setDeletingLog] = useState<TreasureLog | null>(null);
     const [deleteModalVisible, setDeleteModalVisible] = useState(false);
     const [deleting, setDeleting] = useState(false);
+
+    // Success toast feedback for edit/delete actions.
+    const [toast, setToast] = useState<ToastData | null>(null);
 
     // Ref to the scrollable logbook + a map of each date group's y-offset.
     const scrollRef = useRef<ScrollView>(null);
@@ -128,6 +132,7 @@ export default function WinsScreen() {
             .then(() => {
                 setEditModalVisible(false);
                 setEditingLog(null);
+                setToast({ message: 'Treasure updated!' });
                 // Refresh the logbook so changes are immediately reflected.
                 return fetchTreasureGroups().then((data) => {
                     setGroups(data);
@@ -163,6 +168,7 @@ export default function WinsScreen() {
                 );
                 setDeleteModalVisible(false);
                 setDeletingLog(null);
+                setToast({ message: 'Treasure deleted.' });
             })
             .catch((err) => {
                 // Keep the task visible on failure; the user can retry.
@@ -288,6 +294,9 @@ export default function WinsScreen() {
                 onConfirmDelete={handleConfirmDelete}
                 deleting={deleting}
             />
+
+            {/* Success toast for edit/delete actions. */}
+            <Toast toast={toast} onDismiss={() => setToast(null)} />
         </View>
     );
 }

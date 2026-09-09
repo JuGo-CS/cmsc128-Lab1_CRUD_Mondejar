@@ -9,6 +9,7 @@ import SortControl from '@/components/calendar_components/sort-control';
 import EditTreasureModal from '@/components/wins_components/edit-treasure-modal';
 import DeleteTreasureModal from '@/components/wins_components/delete-treasure-modal';
 import WinsCalendarModal from '@/components/wins_components/wins-calendar-modal';
+import Toast, { ToastData } from '@/components/ui/toast';
 import { fetchTasksForDate, CalendarTask, SortCriteria, sortTasks } from '@/dp_operations/calendar/tasks';
 import { completeTask } from '@/dp_operations/home/tasks';
 import { fetchCategories, updateTreasure, deleteTreasure, Category, TreasureLog } from '@/dp_operations/wins/treasures';
@@ -72,6 +73,9 @@ export default function CalendarScreen() {
     const [deleteModalVisible, setDeleteModalVisible] = useState(false);
     const [deleting, setDeleting] = useState(false);
 
+    // Success toast feedback for complete/edit/delete actions.
+    const [toast, setToast] = useState<ToastData | null>(null);
+
     useEffect(() => {
         if (fontsLoaded) {
             SplashScreen.hideAsync();
@@ -127,6 +131,7 @@ export default function CalendarScreen() {
         completeTask(task.id)
             .then(() => {
                 setTasks((prev) => prev.filter((t) => t.id !== task.id));
+                setToast({ message: 'Task completed!' });
             })
             .catch((err) => {
                 console.error('Failed to complete task:', err);
@@ -152,6 +157,7 @@ export default function CalendarScreen() {
             .then(() => {
                 setEditModalVisible(false);
                 setEditingTask(null);
+                setToast({ message: 'Task updated!' });
                 return fetchTasksForDate(selectedDate).then((data) => {
                     setTasks(data);
                 });
@@ -178,6 +184,7 @@ export default function CalendarScreen() {
                 setTasks((prev) => prev.filter((t) => t.id !== task.id));
                 setDeleteModalVisible(false);
                 setDeletingTask(null);
+                setToast({ message: 'Task deleted.' });
             })
             .catch((err) => {
                 console.error('Failed to delete task:', err);
@@ -312,6 +319,9 @@ export default function CalendarScreen() {
                 }}
                 selectedDate={selectedDate}
             />
+
+            {/* Success toast for complete/edit/delete actions. */}
+            <Toast toast={toast} onDismiss={() => setToast(null)} />
         </View>
     );
 }

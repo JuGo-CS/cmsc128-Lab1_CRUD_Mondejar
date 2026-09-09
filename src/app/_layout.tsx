@@ -6,6 +6,7 @@ import { useFonts, Fredoka_400Regular, Fredoka_500Medium, Fredoka_600SemiBold, F
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useState } from 'react';
 import AddModal from '@/components/add-modal';
+import Toast, { ToastData } from '@/components/ui/toast';
 
 function FloatingAddButton({ onPress }: { onPress?: () => void }) {
     return (
@@ -45,6 +46,7 @@ export default function AppLayout() {
     });
 
     const [addModalVisible, setAddModalVisible] = useState(false);
+    const [toast, setToast] = useState<ToastData | null>(null);
 
     useEffect(() => {
         if (fontsLoaded) {
@@ -137,7 +139,13 @@ export default function AppLayout() {
                     // so newly created tasks/habits appear automatically.
                     setAddModalVisible(false);
                 }}
+                onTaskSaved={() => {
+                    setToast({ message: 'Task added successfully!' });
+                }}
             />
+
+            {/* Success toast — shown only after a task save succeeds. */}
+            <Toast toast={toast} onDismiss={() => setToast(null)} />
         </View>
     );
 }
