@@ -13,6 +13,7 @@ import {
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Category } from '@/dp_operations/wins/treasures';
 import { createTask, createHabit } from '@/dp_operations/add/create';
+import WinsCalendarModal from '@/components/wins_components/wins-calendar-modal';
 
 interface AddModalProps {
     visible: boolean;
@@ -30,6 +31,27 @@ const PRIORITY_OPTIONS: { value: string; label: string }[] = [
     { value: 'low', label: 'Low' },
 ];
 
+/** Format a `YYYY-MM-DD` string into a friendly label like "Sep 12, 2026". */
+function formatDeadline(dateStr: string): string {
+    if (!dateStr) return '';
+    const [year, month, day] = dateStr.split('-').map(Number);
+    const date = new Date(year, month - 1, day);
+    return date.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+    });
+}
+
+/** Today's date as `YYYY-MM-DD` in local time. */
+function todayDateString(): string {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
 // A modal to add a new Task or Daily Habit. Starts with a choice, then shows the
 // appropriate form. Saving is disabled until required fields are filled.
 export default function AddModal({ visible, onClose, onSaved }: AddModalProps) {
@@ -42,6 +64,7 @@ export default function AddModal({ visible, onClose, onSaved }: AddModalProps) {
     const [catId, setCatId] = useState<string | null>(null);
     const [deadline, setDeadline] = useState('');
     const [priority, setPriority] = useState('medium');
+    const [deadlinePickerVisible, setDeadlinePickerVisible] = useState(false);
 
     // Habit form state.
     const [habitTitle, setHabitTitle] = useState('');
@@ -276,13 +299,27 @@ export default function AddModal({ visible, onClose, onSaved }: AddModalProps) {
                                     </View>
 
                                     <Text className="text-sm font-fredoka-semibold text-mutedBrown mb-2">Deadline</Text>
-                                    <TextInput
-                                        value={deadline}
-                                        onChangeText={setDeadline}
-                                        placeholder="YYYY-MM-DD (optional)"
-                                        placeholderTextColor="#7D6E6B"
-                                        className="bg-cardBg rounded-xl px-4 py-3 text-base font-fredoka text-deepBrown mb-4"
-                                    />
+                                    <TouchableOpacity
+                                        onPress={() => setDeadlinePickerVisible(true)}
+                                        activeOpacity={0.8}
+                                        className="flex-row items-center bg-cardBg rounded-xl px-4 py-3 mb-4"
+                                    >
+                                        <Ionicons name="calendar-outline" size={20} color="#7D6E6B" />
+                                        <Text className={`ml-3 text-base font-fredoka ${deadline ? 'text-deepBrown' : 'text-mutedBrown'}`}>
+                                            {deadline ? formatDeadline(deadline) : 'Pick a date (optional)'}
+                                        </Text>
+                                        {deadline ? (
+                                            <TouchableOpacity
+                                                onPress={() => setDeadline('')}
+                                                activeOpacity={0.7}
+                                                className="ml-auto"
+                                            >
+                                                <Ionicons name="close-circle" size={20} color="#7D6E6B" />
+                                            </TouchableOpacity>
+                                        ) : (
+                                            <Ionicons name="chevron-forward" size={20} color="#7D6E6B" className="ml-auto" />
+                                        )}
+                                    </TouchableOpacity>
 
                                     <Text className="text-sm font-fredoka-semibold text-mutedBrown mb-2">Priority</Text>
                                     <View className="flex-row mb-4">
@@ -393,6 +430,17 @@ export default function AddModal({ visible, onClose, onSaved }: AddModalProps) {
                     </View>
                 </View>
             </KeyboardAvoidingView>
+
+            {/* Deadline date picker */}
+            <WinsCalendarModal
+                visible={deadlinePickerVisible}
+                onClose={() => setDeadlinePickerVisible(false)}
+                onSelectDate={(date) => {
+                    setDeadline(date);
+                    setDeadlinePickerVisible(false);
+                }}
+                selectedDate={deadline || todayDateString()}
+            />
         </Modal>
     );
 }
