@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import TaskActions from '@/components/ui/task-actions';
-import { HomeTask, HomeSortCriteria } from '@/dp_operations/home/tasks';
+import { CalendarFilterCriteria } from '@/dp_operations/calendar/tasks';
+import { HomeTask } from '@/dp_operations/home/tasks';
 
 // Priority badge colors — match the Unti-Unti priority palette.
 const PRIORITY_STYLES: Record<HomeTask['priority'], { bg: string; label: string }> = {
@@ -17,8 +18,10 @@ const CREATEDAT_BADGE_BG = '#E1D5E7';
 
 interface CalendarTaskCardProps {
     task: HomeTask;
-    /** The active (global) sort criterion — determines what the bottom detail shows. */
-    sortCriteria: HomeSortCriteria;
+    /** The active Calendar filter criterion — determines what the bottom detail shows. */
+    filterCriteria: CalendarFilterCriteria;
+    /** 1-based global queue position used when the current filter is Manual. */
+    queuePosition?: number;
     /** When true, the card is in global edit mode (unified, reveals actions). */
     editMode: boolean;
     onToggle?: (task: HomeTask) => void;
@@ -72,9 +75,19 @@ function formatCreatedAt(createdAt: string): string {
     });
 }
 
-/** Resolve the bottom-detail text for a task based on the active sort criterion. */
-function detailForCriteria(task: HomeTask, criteria: HomeSortCriteria): string {
+/** Format a numeric queue position into a friendly label like "1st in queue". */
+function formatQueuePosition(position: number): string {
+    const suffixes = ['th', 'st', 'nd', 'rd'];
+    const remainder = position % 100;
+    const suffix = suffixes[(remainder - 20) % 10] ?? suffixes[remainder] ?? suffixes[0];
+    return `${position}${suffix} in queue`;
+}
+
+/** Resolve the bottom-detail text for a task based on the active Calendar filter. */
+function detailForCriteria(task: HomeTask, criteria: CalendarFilterCriteria, queuePosition?: number): string {
     switch (criteria) {
+        case 'manual':
+            return formatQueuePosition(queuePosition ?? (task.isFocus ? 1 : 1));
         case 'priority':
             return PRIORITY_STYLES[task.priority].label;
         case 'deadline':
@@ -88,9 +101,11 @@ function detailForCriteria(task: HomeTask, criteria: HomeSortCriteria): string {
     }
 }
 
-/** Resolve the bottom-bar background color based on the active sort criterion. */
-function bgForCriteria(task: HomeTask, criteria: HomeSortCriteria): string {
+/** Resolve the bottom-bar background color based on the active Calendar filter. */
+function bgForCriteria(task: HomeTask, criteria: CalendarFilterCriteria): string {
     switch (criteria) {
+        case 'manual':
+            return PRIORITY_STYLES[task.priority].bg;
         case 'priority':
             return PRIORITY_STYLES[task.priority].bg;
         case 'category':
@@ -109,7 +124,8 @@ function bgForCriteria(task: HomeTask, criteria: HomeSortCriteria): string {
 // reveals Edit / Delete actions (matching the Wins tab interaction).
 export default function CalendarTaskCard({
     task,
-    sortCriteria,
+    filterCriteria,
+    queuePosition,
     editMode,
     onToggle,
     onEdit,
@@ -118,8 +134,8 @@ export default function CalendarTaskCard({
     const [expanded, setExpanded] = useState(false);
     const [showActions, setShowActions] = useState(false);
 
-    const detail = detailForCriteria(task, sortCriteria);
-    const bg = bgForCriteria(task, sortCriteria);
+    const detail = detailForCriteria(task, filterCriteria, queuePosition);
+    const bg = bgForCriteria(task, filterCriteria);
 
     // Edit mode: the entire card is one tappable unit that reveals Edit/Delete.
     if (editMode) {

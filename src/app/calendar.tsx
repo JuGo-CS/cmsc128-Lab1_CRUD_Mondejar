@@ -419,11 +419,12 @@ export default function CalendarScreen() {
                         Nothing in your queue for this day. Enjoy the calm!
                     </Text>
                 ) : (
-                    filteredTasks.map((task) => (
+                    filteredTasks.map((task, index) => (
                         <CalendarTaskCard
                             key={task.id}
                             task={task}
-                            sortCriteria={sortCriteria}
+                            filterCriteria={filterCriteria}
+                            queuePosition={index + 1}
                             editMode={editMode}
                             onToggle={handleCompleteTask}
                             onEdit={handleEditTask}
