@@ -95,7 +95,7 @@ export default function DeleteTreasureModal({
                             marginBottom: 24,
                         }}
                     >
-                        This action cannot be undone.
+                        This action will delete a task/habit.
                     </Text>
 
                     {/* Actions */}

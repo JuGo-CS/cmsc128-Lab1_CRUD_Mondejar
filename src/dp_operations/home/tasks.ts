@@ -282,7 +282,9 @@ export async function setHeroTask(taskId: string): Promise<string | null> {
     const previousHero = rows.find((r) => r.task_id !== taskId)?.task_id ?? null;
 
     // Unset the previous hero (if it is a different task) and set the new one.
-    const updates: Promise<unknown>[] = [];
+    // Supabase query builders are thenables (not real Promises), so type the
+    // array as PromiseLike to match what `.update().eq()` returns.
+    const updates: PromiseLike<unknown>[] = [];
 
     if (previousHero) {
         updates.push(
@@ -318,7 +320,9 @@ export async function persistTaskPositions(
     orderedOtherIds: string[],
     heroId: string | null
 ): Promise<void> {
-    const updates: Promise<unknown>[] = [];
+    // Supabase query builders are thenables (not real Promises), so type the
+    // array as PromiseLike to match what `.update().eq()` returns.
+    const updates: PromiseLike<unknown>[] = [];
 
     // The Hero Task must not occupy a position in the Other Tasks queue.
     if (heroId) {

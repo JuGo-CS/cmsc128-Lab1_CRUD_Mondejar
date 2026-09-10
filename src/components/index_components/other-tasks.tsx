@@ -210,69 +210,64 @@ export default function OtherTasks({
 
     return (
         <View className="mt-2">
-            {/* Stacked task area — touchable to expand/collapse */}
-            <TouchableOpacity
-                onPress={onToggleExpanded}
-                activeOpacity={0.9}
-                className="mt-2"
-            >
-                {expanded ? (
-                    // Expanded: show all tasks as normal stacked rows
-                    visibleTasks.map((task) => (
+            {expanded ? (
+                // Expanded: show all tasks as normal stacked rows.
+                // Expansion is intentionally only toggled by the explicit 'See some tasks' button.
+                visibleTasks.map((task) => (
+                    <View
+                        key={task.id}
+                        className="bg-taskStack rounded-2xl px-4 mb-3 border border-white/50"
+                    >
+                        <TaskItem task={task} onToggle={onToggleTask} compact />
+                    </View>
+                ))
+            ) : (
+                // Collapsed: the top visible task is tappable and completes the task.
+                // The queue advances automatically after the DB write succeeds.
+                <View className="relative" style={{ paddingBottom: (visibleTasks.length - 1) * 12 }}>
+                    <TouchableOpacity
+                        onPress={() => onToggleTask?.(visibleTasks[0])}
+                        activeOpacity={0.85}
+                        className="relative z-10 bg-taskStack rounded-2xl px-4 border border-white/50"
+                        style={{
+                            shadowColor: '#3D2E2B',
+                            shadowOffset: { width: 0, height: 4 },
+                            shadowOpacity: 0.1,
+                            shadowRadius: 6,
+                            elevation: 4,
+                        }}
+                    >
+                        <TaskItem
+                            task={visibleTasks[0]}
+                            onToggle={onToggleTask}
+                            compact
+                        />
+                    </TouchableOpacity>
+                    {/* Remaining queue tasks peek out from behind the front card, in order */}
+                    {visibleTasks.slice(1).map((task, index) => (
                         <View
                             key={task.id}
-                            className="bg-taskStack rounded-2xl px-4 mb-3 border border-white/50"
-                        >
-                            <TaskItem task={task} onToggle={onToggleTask} compact />
-                        </View>
-                    ))
-                ) : (
-                    // Collapsed: show a clean stack — the first task (next in line) is the front card,
-                    // with the rest of the queue peeking out behind/below it in order.
-                    <View className="relative" style={{ paddingBottom: (visibleTasks.length - 1) * 12 }}>
-                        {/* Front card — the task at the top of the queue (next in line) */}
-                        <View
-                            className="relative z-10 bg-taskStack rounded-2xl px-4 border border-white/50"
+                            className="absolute left-0 right-0 bg-taskStack rounded-2xl px-4 border border-white/50"
                             style={{
-                                shadowColor: '#3D2E2B',
-                                shadowOffset: { width: 0, height: 4 },
-                                shadowOpacity: 0.1,
-                                shadowRadius: 6,
-                                elevation: 4,
+                                top: (index + 1) * 12,
+                                zIndex: index,
+                                opacity: 0.70,
                             }}
                         >
-                            <TaskItem
-                                task={visibleTasks[0]}
-                                onToggle={onToggleTask}
-                                compact
-                            />
+                            <TaskItem task={task} onToggle={onToggleTask} compact muted />
                         </View>
-                        {/* Remaining queue tasks peek out from behind the front card, in order */}
-                        {visibleTasks.slice(1).map((task, index) => (
-                            <View
-                                key={task.id}
-                                className="absolute left-0 right-0 bg-taskStack rounded-2xl px-4 border border-white/50"
-                                style={{
-                                    top: (index + 1) * 12,
-                                    zIndex: index,
-                                    opacity: 0.70,
-                                }}
-                            >
-                                <TaskItem task={task} onToggle={onToggleTask} compact muted />
-                            </View>
-                        ))}
-                    </View>
-                )}
-            </TouchableOpacity>
+                    ))}
+                </View>
+            )}
 
-            {/* "See some tasks" toggle */}
+            {/* "See other tasks" toggle */}
             <TouchableOpacity
                 onPress={onToggleExpanded}
                 activeOpacity={0.7}
                 className="flex-row items-center justify-end mt-3"
             >
                 <Text className="text-lg font-fredoka-semibold text-deepBrown underline">
-                    {expanded ? 'See fewer tasks' : 'See some tasks'}
+                    {expanded ? 'See fewer tasks' : 'See other tasks'}
                 </Text>
                 <Ionicons
                     name={expanded ? 'caret-up' : 'caret-down'}
