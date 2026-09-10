@@ -22,114 +22,63 @@ export default function DeleteTreasureModal({
     deleting,
 }: DeleteTreasureModalProps) {
     return (
-        <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+        <Modal 
+            visible={visible} 
+            transparent 
+            statusBarTranslucent
+            animationType="fade" 
+            onRequestClose={onClose}
+        >
             {/* Dimmed backdrop — guides focus to the dialog */}
-            <View
-                style={{
-                    flex: 1,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-                    paddingHorizontal: 35,
-                }}
-            >
-                <View
-                    style={{
-                        width: '100%',
-                        maxWidth: 360,
-                        backgroundColor: '#FDFBF7',
-                        borderRadius: 24,
-                        padding: 24,
-                        shadowColor: '#000',
-                        shadowOffset: { width: 0, height: 8 },
-                        shadowOpacity: 0.25,
-                        shadowRadius: 16,
-                        elevation: 16,
-                    }}
-                >
+            <View className="flex-1 items-center justify-center bg-black/60 px-[35px]">
+                {/* Modal Container */}
+                <View className="w-full max-w-[360px] bg-[#FDFBF7] rounded-[24px] p-[24px] shadow-black shadow-lg elevation-[16]">
                     {/* Warning icon */}
-                    <View style={{ alignItems: 'center', marginBottom: 16 }}>
-                        <View
-                            style={{
-                                backgroundColor: 'rgba(244, 197, 181, 0.4)',
-                                borderRadius: 999,
-                                padding: 16,
-                            }}
-                        >
+                    <View className="items-center mb-[16px]">
+                        <View className="bg-[#F4C5B5]/40 rounded-full p-[16px]">
                             <Ionicons name="trash-outline" size={32} color="#C0392B" />
                         </View>
                     </View>
 
                     {/* Heading */}
-                    <Text
-                        style={{
-                            fontFamily: 'Fredoka_700Bold',
-                            fontSize: 20,
-                            color: '#2C221E',
-                            textAlign: 'center',
-                            marginBottom: 4,
-                        }}
-                    >
+                    <Text className="font-fredoka-bold text-[20px] text-[#2C221E] text-center mb-[4px]">
                         Delete this treasure?
                     </Text>
 
+                    {/* Subtitle / Item Title */}
                     <Text
                         numberOfLines={1}
                         ellipsizeMode="tail"
-                        style={{
-                            fontFamily: 'Fredoka_600SemiBold',
-                            fontSize: 16,
-                            color: '#2C221E',
-                            textAlign: 'center',
-                            marginBottom: 32,
-                        }}
+                        className="font-fredoka-semibold text-[16px] text-[#2C221E] text-center mb-[32px]"
                     >
                         "{log?.title}"
                     </Text>
-                    <Text
-                        style={{
-                            fontFamily: 'Fredoka_400Regular',
-                            fontSize: 14,
-                            color: '#7D6E6B',
-                            textAlign: 'center',
-                            marginBottom: 24,
-                        }}
-                    >
+
+                    {/* Body text */}
+                    <Text className="font-fredoka text-[14px] text-[#7D6E6B] text-center mb-[24px]">
                         This action will delete a task/habit.
                     </Text>
 
                     {/* Actions */}
-                    <View style={{ flexDirection: 'row' }}>
+                    <View className="flex-row">
                         <TouchableOpacity
                             onPress={onClose}
                             activeOpacity={0.7}
                             disabled={deleting}
-                            style={{
-                                flex: 1,
-                                paddingVertical: 12,
-                                borderRadius: 12,
-                                alignItems: 'center',
-                                marginRight: 8,
-                                backgroundColor: '#F9F6F0',
-                            }}
+                            className="flex-1 py-[12px] rounded-[12px] items-center mr-[8px] bg-[#F9F6F0]"
                         >
-                            <Text style={{ fontFamily: 'Fredoka_700Bold', color: '#2C221E' }}>
+                            <Text className="font-fredoka-bold text-[#2C221E]">
                                 Cancel
                             </Text>
                         </TouchableOpacity>
+
                         <TouchableOpacity
                             onPress={() => log && onConfirmDelete(log)}
                             activeOpacity={0.85}
                             disabled={deleting}
-                            style={{
-                                flex: 1,
-                                paddingVertical: 12,
-                                borderRadius: 12,
-                                alignItems: 'center',
-                                backgroundColor: '#C0392B',
-                            }}
+                            className="flex-1 py-[12px] rounded-[12px] items-center bg-[#C0392B]"
                         >
-                            <Text style={{ fontFamily: 'Fredoka_700Bold', color: '#FFFFFF' }}>
+                            <Text className="font-fredoka-bold text-white">
                                 {deleting ? 'Deleting...' : 'Delete'}
                             </Text>
                         </TouchableOpacity>

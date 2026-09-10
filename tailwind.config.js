@@ -18,7 +18,9 @@ module.exports = {
                 cozyBg: '#FDFBF7',
                 deepBrown: '#2C221E',
                 mutedBrown: '#7D6E6B',
-
+                
+                bgCardBg: '#F3EFE9',
+                
                 // Hero & Main Features
                 focusHero: '#6B8E70',
                 taskStack: '#E8C5B5',

@@ -12,7 +12,6 @@ interface HabitRow {
     date_created: string;
     time_created: string;
     created_at: string;
-    // Joined from `categories` via cat_id
     categories?: { emoji_holder: string | null } | null;
 }
 

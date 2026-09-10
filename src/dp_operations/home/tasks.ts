@@ -320,8 +320,6 @@ export async function persistTaskPositions(
     orderedOtherIds: string[],
     heroId: string | null
 ): Promise<void> {
-    // Supabase query builders are thenables (not real Promises), so type the
-    // array as PromiseLike to match what `.update().eq()` returns.
     const updates: PromiseLike<unknown>[] = [];
 
     // The Hero Task must not occupy a position in the Other Tasks queue.
@@ -394,7 +392,7 @@ export function sortHomeTasks(
                 return HOME_PRIORITY_RANK[a.priority] - HOME_PRIORITY_RANK[b.priority];
             case 'deadline':
                 // Tasks with no deadline sort last.
-                if (!a.deadline && !b.deadline) return 0;
+                if (!a.deadline && !b.deadline) return 0; 
                 if (!a.deadline) return 1;
                 if (!b.deadline) return -1;
                 return a.deadline.localeCompare(b.deadline);

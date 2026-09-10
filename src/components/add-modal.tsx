@@ -186,7 +186,7 @@ export default function AddModal({ visible, onClose, onSaved, onTaskSaved, onHab
                             elevation: 16,
                         }}
                     >
-                        {/* Header */}
+                        {/* First modal if '+' was pressed */}
                         <View className="flex-row items-start justify-between mb-4">
                             <Text className="text-2xl font-fredoka-bold text-deepBrown">
                                 {step === 'choose' ? 'Add New' : step === 'task' ? 'New Task' : 'New Habit'}
@@ -206,7 +206,7 @@ export default function AddModal({ visible, onClose, onSaved, onTaskSaved, onHab
                                     <TouchableOpacity
                                         onPress={() => setStep('task')}
                                         activeOpacity={0.85}
-                                        className="flex-row items-center bg-cardBg rounded-2xl p-4 mb-3 border border-white/50"
+                                        className="flex-row items-center bg-bgCardBg rounded-2xl p-4 mb-3 border border-white/50"
                                     >
                                         <View className="bg-taskStack/40 rounded-xl p-3 mr-4">
                                             <Ionicons name="checkbox-outline" size={26} color="#7D6E6B" />
@@ -223,7 +223,7 @@ export default function AddModal({ visible, onClose, onSaved, onTaskSaved, onHab
                                     <TouchableOpacity
                                         onPress={() => setStep('habit')}
                                         activeOpacity={0.85}
-                                        className="flex-row items-center bg-cardBg rounded-2xl p-4 border border-white/50"
+                                        className="flex-row items-center bg-bgCardBg rounded-2xl p-4 border border-white/50"
                                     >
                                         <View className="bg-habitCard/60 rounded-xl p-3 mr-4">
                                             <Ionicons name="repeat-outline" size={26} color="#7D6E6B" />
@@ -240,6 +240,7 @@ export default function AddModal({ visible, onClose, onSaved, onTaskSaved, onHab
                             ) : step === 'task' ? (
                                 /* Task form */
                                 <View>
+                                    {/* This is the back button for the form when creating a new task */}
                                     <TouchableOpacity
                                         onPress={() => setStep('choose')}
                                         activeOpacity={0.7}
@@ -258,7 +259,7 @@ export default function AddModal({ visible, onClose, onSaved, onTaskSaved, onHab
                                         }}
                                         placeholder="What needs to be done?"
                                         placeholderTextColor="#7D6E6B"
-                                        className={`bg-cardBg rounded-xl px-4 py-3 text-base font-fredoka text-deepBrown mb-2 ${
+                                        className={`bg-bgCardBg rounded-xl px-4 py-3 text-base font-fredoka text-deepBrown mb-2 ${
                                             titleError ? 'border border-[#C0392B]' : ''
                                         }`}
                                     />
@@ -275,9 +276,10 @@ export default function AddModal({ visible, onClose, onSaved, onTaskSaved, onHab
                                         placeholder="Optional details"
                                         placeholderTextColor="#7D6E6B"
                                         multiline
-                                        className="bg-cardBg rounded-xl px-4 py-3 text-base font-fredoka text-deepBrown mb-4 min-h-[70px]"
+                                        className="bg-bgCardBg rounded-xl px-4 py-3 text-base font-fredoka text-deepBrown mb-4 min-h-[70px]"
                                     />
 
+                                    {/* Category options */}
                                     <Text className="text-sm font-fredoka-semibold text-mutedBrown mb-2">Category</Text>
                                     <View className="flex-row flex-wrap mb-4">
                                         {categories.length === 0 ? (
@@ -291,7 +293,7 @@ export default function AddModal({ visible, onClose, onSaved, onTaskSaved, onHab
                                                         onPress={() => setCatId(selected ? null : cat.cat_id)}
                                                         activeOpacity={0.7}
                                                         className={`flex-row items-center px-3 py-2 rounded-xl mr-2 mb-2 ${
-                                                            selected ? 'bg-focusHero' : 'bg-cardBg'
+                                                            selected ? 'bg-focusHero' : 'bg-bgCardBg'
                                                         }`}
                                                     >
                                                         <Text className="mr-1">{cat.emoji}</Text>
@@ -308,7 +310,7 @@ export default function AddModal({ visible, onClose, onSaved, onTaskSaved, onHab
                                     <TouchableOpacity
                                         onPress={() => setDeadlinePickerVisible(true)}
                                         activeOpacity={0.8}
-                                        className="flex-row items-center bg-cardBg rounded-xl px-4 py-3 mb-4"
+                                        className="flex-row items-center bg-bgCardBg rounded-xl px-4 py-3 mb-4"
                                     >
                                         <Ionicons name="calendar-outline" size={20} color="#7D6E6B" />
                                         <Text className={`ml-3 text-base font-fredoka ${deadline ? 'text-deepBrown' : 'text-mutedBrown'}`}>
@@ -337,7 +339,7 @@ export default function AddModal({ visible, onClose, onSaved, onTaskSaved, onHab
                                                     onPress={() => setPriority(opt.value)}
                                                     activeOpacity={0.7}
                                                     className={`flex-1 py-2.5 rounded-xl items-center mr-2 last:mr-0 ${
-                                                        selected ? 'bg-focusHero' : 'bg-cardBg'
+                                                        selected ? 'bg-focusHero' : 'bg-bgCardBg'
                                                     }`}
                                                 >
                                                     <Text className={`font-fredoka-semibold ${selected ? 'text-white' : 'text-deepBrown'}`}>
@@ -370,6 +372,7 @@ export default function AddModal({ visible, onClose, onSaved, onTaskSaved, onHab
                             ) : (
                                 /* Habit form */
                                 <View>
+                                    {/* Back button for habit form */}
                                     <TouchableOpacity
                                         onPress={() => setStep('choose')}
                                         activeOpacity={0.7}
@@ -385,7 +388,7 @@ export default function AddModal({ visible, onClose, onSaved, onTaskSaved, onHab
                                         onChangeText={setHabitTitle}
                                         placeholder="e.g. Read a book"
                                         placeholderTextColor="#7D6E6B"
-                                        className="bg-cardBg rounded-xl px-4 py-3 text-base font-fredoka text-deepBrown mb-4"
+                                        className="bg-bgCardBg rounded-xl px-4 py-3 text-base font-fredoka text-deepBrown mb-4"
                                     />
 
                                     <Text className="text-sm font-fredoka-semibold text-mutedBrown mb-2">Category</Text>
@@ -401,7 +404,7 @@ export default function AddModal({ visible, onClose, onSaved, onTaskSaved, onHab
                                                         onPress={() => setHabitCatId(selected ? null : cat.cat_id)}
                                                         activeOpacity={0.7}
                                                         className={`flex-row items-center px-3 py-2 rounded-xl mr-2 mb-2 ${
-                                                            selected ? 'bg-focusHero' : 'bg-cardBg'
+                                                            selected ? 'bg-focusHero' : 'bg-bgCardBg'
                                                         }`}
                                                     >
                                                         <Text className="mr-1">{cat.emoji}</Text>

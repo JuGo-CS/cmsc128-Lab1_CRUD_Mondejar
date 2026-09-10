@@ -140,12 +140,12 @@ export default function HomeScreen() {
 		setHomeSortCriteria(sortCriteria);
 	}, [sortCriteria]);
 
-	// Refetch the pending task queue from Supabase (source of truth). Used on
-	// focus, on pull-to-refresh, and when another screen changes task data.
+	
 	const refreshTasks = useCallback(() => {
-		return fetchPendingTaskQueue()
-			.then((tasks) => {
-				setTaskQueue(tasks as HomeTask[]);
+		return Promise.all([fetchPendingTaskQueue(), getHomeSortCriteria()])
+			.then(([tasks, criteria]) => {
+				setSortCriteria(criteria);
+				setTaskQueue(sortHomeTasks(tasks as HomeTask[], criteria));
 			})
 			.catch((err) => {
 				console.error('Failed to load task queue:', err);
@@ -162,12 +162,15 @@ export default function HomeScreen() {
 		}, [refreshTasks])
 	);
 
-	// Refetch whenever another screen mutates task data, so Home stays in sync.
+	// Refetch whenever task data changes (add, complete, edit, delete, reorder,
+	// make hero) — whether from this screen or another — so the Hero Card and the
+	// Other Tasks queue never go stale. Subscribing to the shared event bus keeps
+	// every mutation path in sync without a manual refresh.
 	useEffect(() => {
-		const unsubscribe = subscribeToTaskChanges(() => {
+		const subs = subscribeToTaskChanges(() => {
 			refreshTasks();
 		});
-		return unsubscribe;
+		return subs
 	}, [refreshTasks]);
 
 	// Load today's habits from Supabase whenever the screen gains focus.
@@ -211,12 +214,12 @@ export default function HomeScreen() {
 		return null;
 	}
 
-	// The Hero Task is always the first item in the queue (next in line).
-	// The remaining tasks are sorted according to the active sort criterion.
-	const sortedQueue = sortHomeTasks(taskQueue, sortCriteria);
-	const heroTask = sortedQueue[0];
+	// The queue state is kept already ordered (hero first, then the active sort
+	// order) so the Other Tasks list updates immediately when a task change is
+	// emitted — no re-sort is needed on render.
+	const heroTask = taskQueue[0];
 	// The remaining tasks form the "Other tasks" queue, in order.
-	const otherTasks = sortedQueue.slice(1);
+	const otherTasks = taskQueue.slice(1);
 
 	// Persist the positions of the active non-Hero tasks so the database order
 	// matches the given visible queue. Uses the current sort to determine the
@@ -277,7 +280,7 @@ export default function HomeScreen() {
 			})
 			.catch((err) => {
 				console.error('Failed to undo habit completion:', err);
-				setToast({ message: 'Could not undo. Please try again.' });
+				setToast({ message: 'Could not undo. Please try again later.' });
 			});
 	};
 
@@ -388,7 +391,8 @@ export default function HomeScreen() {
 		// the persisted `position` order ('manual').
 		setSortCriteria('manual');
 		setTaskQueue(nextQueue);
-		// Persist the new non-Hero positions, then notify other screens.
+		// Persist the new non-Hero positions, then notify subscribed screens so
+		// they refetch and re-sync to the new order.
 		syncPositions(nextQueue, 'manual')
 			.then(() => {
 				emitTaskDataChanged();
@@ -425,14 +429,11 @@ export default function HomeScreen() {
 					undoLabel: 'Undo',
 					onUndo: () => undoTaskEdit(snapshot),
 				});
-				// Refetch the queue, then re-sync positions so a status change
-				// (e.g. completed → pending) keeps the global order consistent.
-				return fetchPendingTaskQueue().then((tasks) => {
-					const nextQueue = tasks as HomeTask[];
-					setTaskQueue(nextQueue);
-					return syncPositions(nextQueue, sortCriteria).then(() => {
-						emitTaskDataChanged();
-					});
+				// Refetch the queue (ordered by the active sort), then re-sync
+				// positions so a status change (e.g. completed → pending) keeps the
+				// global order consistent, and notify all subscribed screens.
+				return refreshTasks().then(() => {
+					emitTaskDataChanged();
 				});
 			})
 			.catch((err) => {
