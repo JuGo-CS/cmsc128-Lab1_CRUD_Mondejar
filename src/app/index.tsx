@@ -296,7 +296,7 @@ export default function HomeScreen() {
 					setTaskQueue(nextQueue);
 					return syncPositions(nextQueue, sortCriteria).then(() => {
 						setToast({
-							message: 'Task complete! One less thing to worry about.',
+							message: 'Task complete!',
 							undoLabel: 'Undo',
 							onUndo: () => undoTaskCompletion(task, wasHero),
 						});
