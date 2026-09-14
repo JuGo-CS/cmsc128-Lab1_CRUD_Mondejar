@@ -70,119 +70,119 @@ function FloatingAddButton({ onPress }: { onPress?: () => void }) {
 
     return (
         <GestureHandlerRootView style={{ flex: 1 }}>
-        <View className="flex-1 mx-1">
-            <Tabs
-            screenOptions={{
-                headerShown: false,
-                tabBarActiveTintColor: "#3D2E2B",
-                tabBarInactiveTintColor: "#3D2E2B",
-                tabBarStyle: {
-                backgroundColor: "#F7F2EB",
-                borderTopColor: "#E6DDD4",
-                borderTopWidth: 1,
-                height: Platform.OS === "ios" ? 92 : 82,
-                paddingBottom: Platform.OS === "ios" ? 24 : 12,
-                paddingTop: 8,
-                },
-            }}
-            >
-            <Tabs.Screen
-                name="index"
-                options={{
-                title: "Home",
-                tabBarLabel: ({ focused }) => (
-                    <TabLabel label="Home" focused={focused} />
-                ),
-                tabBarIcon: ({ focused }) => (
-                    <Ionicons
-                    name={focused ? "home" : "home-outline"}
-                    size={26}
-                    color="#3D2E2B"
-                    />
-                ),
+            <View className="flex-1 mx-1">
+                <Tabs
+                screenOptions={{
+                    headerShown: false,
+                    tabBarActiveTintColor: "#3D2E2B",
+                    tabBarInactiveTintColor: "#3D2E2B",
+                    tabBarStyle: {
+                    backgroundColor: "#F7F2EB",
+                    borderTopColor: "#E6DDD4",
+                    borderTopWidth: 1,
+                    height: Platform.OS === "ios" ? 92 : 82,
+                    paddingBottom: Platform.OS === "ios" ? 24 : 12,
+                    paddingTop: 8,
+                    },
                 }}
-            />
-
-            <Tabs.Screen
-                name="wins"
-                options={{
-                title: "Wins",
-                tabBarLabel: ({ focused }) => (
-                    <TabLabel label="Wins" focused={focused} />
-                ),
-                tabBarIcon: ({ focused }) => (
-                    <Ionicons
-                    name={focused ? "star" : "star-outline"}
-                    size={26}
-                    color="#3D2E2B"
-                    />
-                ),
-                }}
-            />
-
-            <Tabs.Screen
-                name="add-modal"
-                options={{
-                title: "",
-                tabBarButton: () => <View className="w-[74px]" />, // spacer
-                }}
-            />
-
-            <Tabs.Screen
-                name="calendar"
-                options={{
-                title: "Lists",
-                tabBarLabel: ({ focused }) => (
-                    <TabLabel label="Lists" focused={focused} />
-                ),
-                tabBarIcon: ({ focused }) => (
-                    <Ionicons
-                    name={focused ? "clipboard" : "clipboard-outline"}
-                    size={26}
-                    color="#3D2E2B"
-                    />
-                ),
-                }}
-            />
-
-            <Tabs.Screen
-                name="profile"
-                options={{
-                    title: "Profile",
+                >
+                <Tabs.Screen
+                    name="home_page/home"
+                    options={{
+                    title: "Home",
                     tabBarLabel: ({ focused }) => (
-                        <TabLabel label="Profile" focused={focused} />
+                        <TabLabel label="Home" focused={focused} />
                     ),
                     tabBarIcon: ({ focused }) => (
                         <Ionicons
-                        name={focused ? "person" : "person-outline"}
+                        name={focused ? "home" : "home-outline"}
                         size={26}
                         color="#3D2E2B"
                         />
                     ),
+                    }}
+                />
+
+                <Tabs.Screen
+                    name="wins"
+                    options={{
+                    title: "Wins",
+                    tabBarLabel: ({ focused }) => (
+                        <TabLabel label="Wins" focused={focused} />
+                    ),
+                    tabBarIcon: ({ focused }) => (
+                        <Ionicons
+                        name={focused ? "star" : "star-outline"}
+                        size={26}
+                        color="#3D2E2B"
+                        />
+                    ),
+                    }}
+                />
+
+                <Tabs.Screen
+                    name="gap_filler"
+                    options={{
+                    title: "",
+                    tabBarButton: () => <View className="w-[74px]" />, // spacer
+                    }}
+                />
+
+                <Tabs.Screen
+                    name="calendar"
+                    options={{
+                    title: "Lists",
+                    tabBarLabel: ({ focused }) => (
+                        <TabLabel label="Lists" focused={focused} />
+                    ),
+                    tabBarIcon: ({ focused }) => (
+                        <Ionicons
+                        name={focused ? "clipboard" : "clipboard-outline"}
+                        size={26}
+                        color="#3D2E2B"
+                        />
+                    ),
+                    }}
+                />
+
+                <Tabs.Screen
+                    name="profile"
+                    options={{
+                        title: "Profile",
+                        tabBarLabel: ({ focused }) => (
+                            <TabLabel label="Profile" focused={focused} />
+                        ),
+                        tabBarIcon: ({ focused }) => (
+                            <Ionicons
+                            name={focused ? "person" : "person-outline"}
+                            size={26}
+                            color="#3D2E2B"
+                            />
+                        ),
+                    }}
+                />
+                </Tabs>
+
+                <FloatingAddButton onPress={() => setAddModalVisible(true)} />
+
+                <AddModal
+                visible={addModalVisible}
+                onClose={() => setAddModalVisible(false)}
+                onSaved={() => {
+                    setAddModalVisible(false);
                 }}
-            />
-            </Tabs>
+                onTaskSaved={() => {
+                    setToast({ message: "Task added successfully!" });
+                    emitTaskDataChanged();
+                }}
+                onHabitSaved={() => {
+                    setToast({ message: "Habit added successfully!" });
+                }}
+                />
 
-            <FloatingAddButton onPress={() => setAddModalVisible(true)} />
-
-            <AddModal
-            visible={addModalVisible}
-            onClose={() => setAddModalVisible(false)}
-            onSaved={() => {
-                setAddModalVisible(false);
-            }}
-            onTaskSaved={() => {
-                setToast({ message: "Task added successfully!" });
-                emitTaskDataChanged();
-            }}
-            onHabitSaved={() => {
-                setToast({ message: "Habit added successfully!" });
-            }}
-            />
-
-            {/* Success toast — shown only after a task save succeeds. */}
-            <Toast toast={toast} onDismiss={() => setToast(null)} />
-        </View>
+                {/* Success toast — shown only after a task save succeeds. */}
+                <Toast toast={toast} onDismiss={() => setToast(null)} />
+            </View>
         </GestureHandlerRootView>
     );
 }
