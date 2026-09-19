@@ -11,8 +11,9 @@ import {
     Keyboard,
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { Category } from '@/dp_operations/wins/treasures';
-import { createTask, createHabit } from '@/dp_operations/add/create';
+import { Category } from '@/features/treasures/treasures.types';
+import { createTask } from '@/features/tasks/tasks.api';
+import { createHabit } from '@/features/habits/habits.api';
 import WinsCalendarModal from '@/components/wins_components/wins-calendar-modal';
 
 interface AddModalProps {
@@ -84,7 +85,7 @@ export default function AddModal({ visible, onClose, onSaved, onTaskSaved, onHab
         if (!visible) return;
         // Lazy import to avoid a circular dependency risk; categories come from
         // the wins treasures operations.
-        import('@/dp_operations/wins/treasures')
+        import('@/features/treasures/treasures.api')
             .then((mod) => mod.fetchCategories())
             .then((data) => {
                 setCategories(data);

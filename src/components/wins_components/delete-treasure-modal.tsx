@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, Modal } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { TreasureLog } from '@/dp_operations/wins/treasures';
+import { TreasureLog } from '@/features/treasures/treasures.types';
 
 interface DeleteTreasureModalProps {
     visible: boolean;

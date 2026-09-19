@@ -11,8 +11,17 @@ import WinsCalendarModal from '@/components/wins_components/wins-calendar-modal'
 import EditTreasureModal from '@/components/wins_components/edit-treasure-modal';
 import DeleteTreasureModal from '@/components/wins_components/delete-treasure-modal';
 import Toast, { ToastData } from '@/components/ui/toast';
-import { fetchTreasureGroups, TreasureGroup, TreasureLog, deleteTreasure, fetchCategories, updateTreasure, restoreTreasure, Category } from '@/dp_operations/wins/treasures';
-import { restoreTaskSnapshot, TaskSnapshot } from '@/dp_operations/home/tasks';
+import { TreasureGroup, TreasureLog, Category } from '@/features/treasures/treasures.types';
+import {
+    fetchTreasureGroups,
+    deleteTreasure,
+    fetchCategories,
+    updateTreasure,
+    restoreTreasure,
+} from '@/features/treasures/treasures.api';
+import { TaskSnapshot } from '@/features/tasks/tasks.types';
+import { restoreTaskSnapshot } from '@/features/tasks/tasks.api';
+
 
 // Placeholder treasure groups used when the database fetch hasn't loaded yet.
 // Replace with real data once the backend is fully wired.
@@ -21,13 +30,13 @@ const PLACEHOLDER_GROUPS: TreasureGroup[] = [
         date: '2026-09-09',
         label: 'September 9, 2026',
         logs: [
-            { 
-                id: 't-1', 
-                title: 'Finish wireframes for Unti-Unti', 
-                description: null, 
-                catId: null, 
-                iconName: 'school', 
-                completedDate: '2026-09-09', 
+            {
+                id: 't-1',
+                title: 'Finish wireframes for Unti-Unti',
+                description: null,
+                catId: null,
+                iconName: 'school',
+                completedDate: '2026-09-09',
                 completedTime: '14:30:00',
                 status: 'completed',
                 deadline: null,
@@ -35,13 +44,13 @@ const PLACEHOLDER_GROUPS: TreasureGroup[] = [
                 position: 0,
                 createdAt: '2026-09-01T00:00:00.000Z',
             },
-            { 
-                id: 't-2', 
-                title: 'Finish wireframes for Unti-Unti', 
-                description: null, 
-                catId: null, 
-                iconName: 'school', 
-                completedDate: '2026-09-09', 
+            {
+                id: 't-2',
+                title: 'Finish wireframes for Unti-Unti',
+                description: null,
+                catId: null,
+                iconName: 'school',
+                completedDate: '2026-09-09',
                 completedTime: '14:30:00',
                 status: 'completed',
                 deadline: null,
@@ -49,13 +58,13 @@ const PLACEHOLDER_GROUPS: TreasureGroup[] = [
                 position: 1,
                 createdAt: '2026-09-01T00:00:00.000Z',
             },
-            { 
-                id: 't-3', 
-                title: 'Finish wireframes for Unti-Unti', 
-                description: null, 
-                catId: null, 
-                iconName: 'school', 
-                completedDate: '2026-09-09', 
+            {
+                id: 't-3',
+                title: 'Finish wireframes for Unti-Unti',
+                description: null,
+                catId: null,
+                iconName: 'school',
+                completedDate: '2026-09-09',
                 completedTime: '14:30:00',
                 status: 'completed',
                 deadline: null,
@@ -69,13 +78,13 @@ const PLACEHOLDER_GROUPS: TreasureGroup[] = [
         date: '2026-09-08',
         label: 'September 8, 2026',
         logs: [
-            { 
-                id: 't-4', 
-                title: 'Finish wireframes for Unti-Unti', 
-                description: null, 
-                catId: null, 
-                iconName: 'school', 
-                completedDate: '2026-09-08', 
+            {
+                id: 't-4',
+                title: 'Finish wireframes for Unti-Unti',
+                description: null,
+                catId: null,
+                iconName: 'school',
+                completedDate: '2026-09-08',
                 completedTime: '14:30:00',
                 status: 'completed',
                 deadline: null,
@@ -83,13 +92,13 @@ const PLACEHOLDER_GROUPS: TreasureGroup[] = [
                 position: 0,
                 createdAt: '2026-09-01T00:00:00.000Z',
             },
-            { 
-                id: 't-5', 
-                title: 'Finish wireframes for Unti-Unti', 
-                description: null, 
-                catId: null, 
-                iconName: 'school', 
-                completedDate: '2026-09-08', 
+            {
+                id: 't-5',
+                title: 'Finish wireframes for Unti-Unti',
+                description: null,
+                catId: null,
+                iconName: 'school',
+                completedDate: '2026-09-08',
                 completedTime: '14:30:00',
                 status: 'completed',
                 deadline: null,
@@ -106,7 +115,7 @@ function todayDateString(): string {
     const now = new Date();
     const year = now.getFullYear();
     const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
+    let day = String(now.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
 }
 
@@ -235,11 +244,6 @@ export default function WinsScreen() {
                             });
                     },
                 });
-                // Refresh the logbook so changes are immediately reflected.
-                return fetchTreasureGroups().then((data) => {
-                    setGroups(data);
-                    emitTaskDataChanged();
-                });
             })
             .catch((err) => {
                 console.error('Failed to update treasure:', err);
@@ -288,7 +292,6 @@ export default function WinsScreen() {
                             });
                     },
                 });
-                emitTaskDataChanged();
             })
             .catch((err) => {
                 // Keep the task visible on failure; the user can retry.

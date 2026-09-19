@@ -11,7 +11,7 @@ import {
     Keyboard,
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { Category, TreasureLog } from '@/dp_operations/wins/treasures';
+import { Category, TreasureLog } from '@/features/treasures/treasures.types';
 import WinsCalendarModal from '@/components/wins_components/wins-calendar-modal';
 
 interface EditTreasureModalProps {

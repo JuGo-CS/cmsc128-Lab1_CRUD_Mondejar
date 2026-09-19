@@ -12,10 +12,20 @@ import EditTreasureModal from '@/components/wins_components/edit-treasure-modal'
 import DeleteTreasureModal from '@/components/wins_components/delete-treasure-modal';
 import WinsCalendarModal from '@/components/wins_components/wins-calendar-modal';
 import Toast, { ToastData } from '@/components/ui/toast';
-import { fetchPendingTaskQueue, sortHomeTasks, restoreTask, restoreTaskSnapshot, homeTaskToSnapshot, undoCompleteTask, TaskSnapshot, HomeTask, HomeSortCriteria } from '@/dp_operations/home/tasks';
-import { filterTasksByDate, filterTasks, CalendarFilterCriteria } from '@/dp_operations/calendar/tasks';
-import { completeTask } from '@/dp_operations/home/tasks';
-import { fetchCategories, updateTreasure, deleteTreasure, Category, TreasureLog } from '@/dp_operations/wins/treasures';
+import { HomeTask, TaskSnapshot, HomeSortCriteria } from '@/features/tasks/tasks.types';
+import {
+    fetchPendingTaskQueue,
+    sortHomeTasks,
+    restoreTask,
+    restoreTaskSnapshot,
+    homeTaskToSnapshot,
+    undoCompleteTask,
+    completeTask,
+} from '@/features/tasks/tasks.api';
+import { filterTasksByDate, filterTasks, CalendarFilterCriteria } from '@/features/tasks/calendar';
+import { Category, TreasureLog } from '@/features/treasures/treasures.types';
+import { fetchCategories, updateTreasure, deleteTreasure } from '@/features/treasures/treasures.api';
+
 
 // Map a HomeTask to the TreasureLog shape the Wins edit/delete modals expect.
 // The modals only read id/title/description/catId; completedDate/Time are unused
@@ -139,9 +149,7 @@ export default function CalendarScreen() {
         let isMounted = true;
         fetchCategories()
             .then((data) => {
-                if (isMounted) {
-                    setCategories(data);
-                }
+                if (isMounted) setCategories(data);
             })
             .catch((err) => {
                 console.error('Failed to load categories:', err);
@@ -176,7 +184,6 @@ export default function CalendarScreen() {
                             });
                     },
                 });
-                emitTaskDataChanged();
             })
             .catch((err) => {
                 console.error('Failed to complete task:', err);
@@ -221,9 +228,6 @@ export default function CalendarScreen() {
                             });
                     },
                 });
-                return refreshTasks().then(() => {
-                    emitTaskDataChanged();
-                });
             })
             .catch((err) => {
                 console.error('Failed to update task:', err);
@@ -263,7 +267,6 @@ export default function CalendarScreen() {
                             });
                     },
                 });
-                emitTaskDataChanged();
             })
             .catch((err) => {
                 console.error('Failed to delete task:', err);
@@ -372,9 +375,7 @@ export default function CalendarScreen() {
                                             key={cat.cat_id}
                                             onPress={() => handleChangeFilterValue(cat.cat_name)}
                                             activeOpacity={0.7}
-                                            className={`flex-row items-center px-3 py-2 rounded-xl mr-2 mb-2 ${
-                                                selected ? 'bg-focusHero' : 'bg-cardBg'
-                                            }`}
+                                            className={`flex-row items-center px-3 py-2 rounded-xl mr-2 mb-2 ${selected ? 'bg-focusHero' : 'bg-cardBg'}`}
                                         >
                                             <Text className="mr-1">{cat.emoji}</Text>
                                             <Text className={`font-fredoka-semibold ${selected ? 'text-white' : 'text-deepBrown'}`}>
@@ -394,9 +395,7 @@ export default function CalendarScreen() {
                                             key={p}
                                             onPress={() => handleChangeFilterValue(p)}
                                             activeOpacity={0.7}
-                                            className={`flex-1 py-2.5 rounded-xl items-center mr-2 last:mr-0 ${
-                                                selected ? 'bg-focusHero' : 'bg-cardBg'
-                                            }`}
+                                            className={`flex-1 py-2.5 rounded-xl items-center mr-2 last:mr-0 ${selected ? 'bg-focusHero' : 'bg-cardBg'}`}
                                         >
                                             <Text className={`font-fredoka-semibold capitalize ${selected ? 'text-white' : 'text-deepBrown'}`}>
                                                 {p}
@@ -408,6 +407,8 @@ export default function CalendarScreen() {
                         )}
                     </View>
                 )}
+
+                
 
                 {/* Task cards */}
                 {loading ? (

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import TaskActions from '@/components/ui/task-actions';
-import { TreasureLog } from '@/dp_operations/wins/treasures';
+import { TreasureLog } from '@/features/treasures/treasures.types';
 
 /** Format a `HH:MM:SS` time into a friendly label like "2:30 PM". */
 function formatTimeLabel(timeStr: string): string {
@@ -36,7 +36,7 @@ export default function TreasureLogCard({ log, onEdit, onDelete }: TreasureLogCa
             >
                 {/* Task icon */}
                 <View className="bg-taskStack/40 rounded-lg p-2 mr-3">
-                    <Ionicons name={log.iconName} size={20} color="#7D6E6B" />
+                    <Ionicons name={log.iconName as keyof typeof Ionicons.glyphMap} size={20} color="#7D6E6B" />
                 </View>
 
                 {/* Title + completion time */}

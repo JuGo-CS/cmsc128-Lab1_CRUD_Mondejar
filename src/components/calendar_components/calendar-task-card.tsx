@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import TaskActions from '@/components/ui/task-actions';
-import { CalendarFilterCriteria } from '@/dp_operations/calendar/tasks';
-import { HomeTask } from '@/dp_operations/home/tasks';
+import { CalendarFilterCriteria } from '@/features/tasks/calendar';
+import { HomeTask } from '@/features/tasks/tasks.types';
 
 // Priority badge colors — match the Unti-Unti priority palette.
 const PRIORITY_STYLES: Record<HomeTask['priority'], { bg: string; label: string }> = {

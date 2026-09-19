@@ -1,0 +1,306 @@
+import { supabase } from '../../lib/supabase';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { TreasureLog, TreasureGroup, Category, TreasureEditPayload } from './treasures.types';
+
+export type { Category, TreasureLog, TreasureGroup, TreasureEditPayload };
+
+/** Today's date as `YYYY-MM-DD` in local time, matching `completed_date`. */
+function todayDateString(): string {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
+/** Current time as `HH:MM:SS` in local time, matching `completed_time`. */
+function nowTimeString(): string {
+    return new Date().toTimeString().slice(0, 8);
+}
+
+/**
+ * Raw shape of a row from the `tasks` table (joined with its category).
+ * Column names match the Supabase schema exactly — we do not modify the schema.
+ */
+interface CompletedTaskRow {
+    task_id: string;
+    cat_id: string | null;
+    title: string;
+    description: string | null;
+    status: string;
+    priority: string | null;
+    deadline: string | null;
+    position: number | null;
+    completed_date: string | null;
+    completed_time: string | null;
+    created_at: string;
+    // Joined from `categories` via cat_id
+    categories?: { emoji_holder: string | null } | null;
+}
+
+/**
+ * Map a category's stored emoji to an Ionicons glyph name so the UI can render it.
+ * Falls back to a neutral icon when the emoji is unknown or missing.
+ */
+const EMOJI_TO_ICON: Record<string, keyof typeof Ionicons.glyphMap> = {
+    '🧘': 'body',
+    '💻': 'laptop',
+    '🌱': 'leaf',
+    '📚': 'book',
+    '💧': 'water',
+    '🚶': 'walk',
+    '🧎': 'body',
+    '📝': 'create',
+    '🎓': 'school',
+    '💼': 'briefcase',
+    '🏃': 'barbell',
+    '🧠': 'bulb',
+    '💤': 'moon',
+    '🍎': 'nutrition',
+    '🎨': 'color-palette',
+};
+
+const DEFAULT_ICON: keyof typeof Ionicons.glyphMap = 'ellipse-outline';
+
+/** Resolve the Ionicons name for a category emoji, with a neutral fallback. */
+function iconForEmoji(emoji: string | null | undefined): keyof typeof Ionicons.glyphMap {
+    if (!emoji) return DEFAULT_ICON;
+    return EMOJI_TO_ICON[emoji] ?? DEFAULT_ICON;
+}
+
+/** Format a `YYYY-MM-DD` date into a friendly label like "September 9, 2026". */
+function formatDateLabel(dateStr: string): string {
+    const [year, month, day] = dateStr.split('-').map(Number);
+    const date = new Date(year, month - 1, day);
+    return date.toLocaleDateString('en-US', {
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric',
+    });
+}
+
+/** Convert a raw completed task row into a `TreasureLog`. */
+function toTreasureLog(row: CompletedTaskRow): TreasureLog {
+    return {
+        id: row.task_id,
+        title: row.title,
+        description: row.description,
+        catId: row.cat_id,
+        iconName: iconForEmoji(row.categories?.emoji_holder),
+        status: row.status === 'pending' ? 'pending' : 'completed',
+        deadline: row.deadline ? row.deadline.slice(0, 10) : null,
+        priority: row.priority,
+        position: row.position,
+        createdAt: row.created_at,
+        completedDate: row.completed_date ?? '',
+        completedTime: row.completed_time ?? '',
+    };
+}
+
+/**
+ * Fetch all completed tasks and group them by completion date, newest first.
+ *
+ * Each group is ordered by its date descending, and the logs within a group are
+ * ordered by completion time descending. This mirrors the Wins screen's grouped,
+ * day-by-day layout. The completed tasks are not deleted — they stay in the
+ * `tasks` table for history, and are grouped here by their `completed_date`.
+ */
+export async function fetchTreasureGroups(): Promise<TreasureGroup[]> {
+    const { data, error } = await supabase
+        .from('tasks')
+        .select('*, categories(emoji_holder)')
+        .eq('status', 'completed')
+        .not('completed_date', 'is', null)
+        .order('completed_date', { ascending: false })
+        .order('completed_time', { ascending: false });
+
+    if (error) {
+        console.error('Failed to fetch completed tasks:', error.message);
+        throw error;
+    }
+
+    const rows = (data ?? []) as unknown as CompletedTaskRow[];
+    const logs = rows.map(toTreasureLog);
+
+    // Group logs by their completion date, preserving the newest-first order.
+    const groups = new Map<string, TreasureLog[]>();
+    for (const log of logs) {
+        const group = groups.get(log.completedDate);
+        if (group) {
+            group.push(log);
+        } else {
+            groups.set(log.completedDate, [log]);
+        }
+    }
+
+    return Array.from(groups.entries()).map(([date, groupLogs]) => ({
+        date,
+        label: formatDateLabel(date),
+        logs: groupLogs,
+    }));
+}
+
+/**
+ * Update the title of a completed task log ("Treasure").
+ *
+ * The completed task stays in the `tasks` table; only its title is edited.
+ * This keeps the edit action persistent across app reloads.
+ */
+export async function updateTreasureTitle(taskId: string, title: string): Promise<void> {
+    const { error } = await supabase
+        .from('tasks')
+        .update({ title })
+        .eq('task_id', taskId);
+
+    if (error) {
+        console.error('Failed to update treasure title:', error.message);
+        throw error;
+    }
+}
+
+/**
+ * Delete a completed task log ("Treasure") from the `tasks` table.
+ *
+ * This permanently removes the task record. Use with care — the completion
+ * history is not recoverable once deleted.
+ */
+export async function deleteTreasure(taskId: string): Promise<void> {
+    const { error } = await supabase
+        .from('tasks')
+        .delete()
+        .eq('task_id', taskId);
+
+    if (error) {
+        console.error('Failed to delete treasure:', error.message);
+        throw error;
+    }
+}
+
+/**
+ * Restore a previously deleted completed task ("Treasure") with its original
+ * completion data. Used to undo a deletion from the Wins tab.
+ */
+export async function restoreTreasure(log: TreasureLog): Promise<void> {
+    const { error } = await supabase.from('tasks').insert({
+        task_id: log.id,
+        cat_id: log.catId,
+        title: log.title,
+        description: log.description,
+        status: 'completed',
+        is_focus: false,
+        priority: log.priority,
+        deadline: log.deadline,
+        position: log.position,
+        created_at: log.createdAt,
+        completed_date: log.completedDate || null,
+        completed_time: log.completedTime || null,
+    });
+
+    if (error) {
+        console.error('Failed to restore treasure:', error.message);
+        throw error;
+    }
+}
+
+/**
+ * Fetch all available task categories for the edit form.
+ * The user can pick a new category when editing a completed task.
+ */
+export async function fetchCategories(): Promise<Category[]> {
+    const { data, error } = await supabase
+        .from('categories')
+        .select('cat_id, cat_name, emoji_holder')
+        .order('cat_name', { ascending: true });
+
+    if (error) {
+        console.error('Failed to fetch categories:', error.message);
+        throw error;
+    }
+
+    const rows = (data ?? []) as unknown as { cat_id: string; cat_name: string; emoji_holder: string | null }[];
+    return rows.map((row) => ({
+        cat_id: row.cat_id,
+        cat_name: row.cat_name,
+        emoji: row.emoji_holder ?? '✨',
+    }));
+}
+
+/**
+ * Update a completed task ("Treasure") with the edited fields.
+ *
+ * When the status is changed back to `pending`, the task is returned to the
+ * active task queue: its completion date/time are cleared and its focus flag is
+ * unset so it rejoins the queue as a normal pending task (the existing queue
+ * logic in `fetchPendingTaskQueue` will order it appropriately).
+ */
+export async function updateTreasure(
+    taskId: string,
+    payload: TreasureEditPayload
+): Promise<void> {
+    const update: Record<string, unknown> = {
+        title: payload.title,
+        description: payload.description,
+        cat_id: payload.cat_id,
+        deadline: payload.deadline,
+    };
+
+    if (payload.status === 'pending') {
+        // Revert to pending: clear completion metadata and unset focus so the
+        // task rejoins the queue as a non-focus pending task. Assign the next
+        // position so it appends cleanly without a gap or conflict.
+        const { data: posRows, error: posError } = await supabase
+            .from('tasks')
+            .select('position')
+            .eq('status', 'pending')
+            .not('position', 'is', null);
+
+        if (posError) {
+            console.error('Failed to read task positions:', posError.message);
+            throw posError;
+        }
+
+        const maxPosition = (posRows ?? []).reduce(
+            (max, r) => Math.max(max, (r as { position: number }).position),
+            0
+        );
+        const nextPosition = (posRows ?? []).length > 0 ? maxPosition + 1 : 0;
+
+        update.status = 'pending';
+        update.completed_date = null;
+        update.completed_time = null;
+        update.is_focus = false;
+        update.position = nextPosition;
+    } else {
+        update.status = 'completed';
+
+        // Only stamp a completion date/time when the task was NOT already
+        // completed — editing an existing completed task must not change its
+        // original completion timestamp.
+        const { data, error: fetchError } = await supabase
+            .from('tasks')
+            .select('status')
+            .eq('task_id', taskId)
+            .maybeSingle();
+
+        if (fetchError) {
+            console.error('Failed to read task status:', fetchError.message);
+            throw fetchError;
+        }
+
+        const wasCompleted = data?.status === 'completed';
+        if (!wasCompleted) {
+            update.completed_date = todayDateString();
+            update.completed_time = nowTimeString();
+        }
+    }
+
+    const { error } = await supabase
+        .from('tasks')
+        .update(update)
+        .eq('task_id', taskId);
+
+    if (error) {
+        console.error('Failed to update treasure:', error.message);
+        throw error;
+    }
+}
