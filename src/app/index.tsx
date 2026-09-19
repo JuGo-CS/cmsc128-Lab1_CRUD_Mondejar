@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, Text, ScrollView, ActivityIndicator, RefreshControl, TouchableOpacity } from 'react-native';
 import { useFonts, Fredoka_400Regular, Fredoka_500Medium, Fredoka_600SemiBold, Fredoka_700Bold } from '@expo-google-fonts/fredoka';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useCallback } from 'react';
@@ -75,6 +75,7 @@ export default function HomeScreen() {
     // The ordered task queue. Index 0 is the current Hero Task.
     const [taskQueue, setTaskQueue] = useState<HomeTask[]>([]);
     const [tasksLoading, setTasksLoading] = useState(true);
+    const [taskError, setTaskError] = useState(false);
 
     // Whether the "Other tasks" section is in edit mode (drag + hero selection).
     const [editMode, setEditMode] = useState(false);
@@ -85,6 +86,7 @@ export default function HomeScreen() {
     // Daily habits — loaded from the Supabase `habits` table.
     const [habits, setHabits] = useState<HabitData[]>([]);
     const [habitsLoading, setHabitsLoading] = useState(true);
+    const [habitsError, setHabitsError] = useState(false);
 
     // Whether the "Other tasks" queue is expanded.
     const [otherTasksExpanded, setOtherTasksExpanded] = useState(false);
@@ -140,6 +142,7 @@ export default function HomeScreen() {
     }, [sortCriteria]);
 
     const refreshTasks = useCallback(() => {
+        setTaskError(false); // reset error at start of fetch
         return Promise.all([fetchPendingTaskQueue(), getHomeSortCriteria()])
             .then(([tasks, criteria]) => {
                 setSortCriteria(criteria);
@@ -147,6 +150,7 @@ export default function HomeScreen() {
             })
             .catch((err) => {
                 console.error('Failed to load task queue:', err);
+                setTaskError(true);
             })
             .finally(() => {
                 setTasksLoading(false);
@@ -157,10 +161,12 @@ export default function HomeScreen() {
     useFocusEffect(
         useCallback(() => {
             let active = true;
+            setTaskError(false); // reset error at start of fetch
             refreshTasks()
                 .catch((err) => {
                     if (active) {
                         console.error('Failed to load task queue:', err);
+                        setTaskError(true);
                     }
                 });
             return () => {
@@ -181,13 +187,16 @@ export default function HomeScreen() {
     useFocusEffect(
         useCallback(() => {
             let active = true;
-
+            setHabitsError(false); // reset error at start of fetch
             fetchTodayHabits()
                 .then((habitsData) => {
                     if (active) setHabits(habitsData);
                 })
                 .catch((err) => {
-                    if (active) console.error('Failed to load habits:', err);
+                    if (active) {
+                        console.error('Failed to load habits:', err);
+                        setHabitsError(true);
+                    }
                 })
                 .finally(() => {
                     if (active) setHabitsLoading(false);
@@ -522,9 +531,13 @@ export default function HomeScreen() {
     const handleRefresh = useCallback(() => {
         if (refreshing) return;
         setRefreshing(true);
-        Promise.all([refreshTasks(), fetchTodayHabits().then(setHabits)])
+        setTaskError(false); // reset error on refresh
+        setHabitsError(false); // reset error on refresh
+        Promise.all([refreshTasks(), fetchTodayHabits().then(setHabits).catch(() => setHabitsError(true))])
             .catch((err) => {
                 console.error('Failed to refresh Home:', err);
+                setTaskError(true);
+                setHabitsError(true);
             })
             .finally(() => {
                 setRefreshing(false);
@@ -585,6 +598,19 @@ export default function HomeScreen() {
                             Loading your tasks...
                         </Text>
                     </View>
+                ) : taskError ? (
+                    <View className="rounded-3xl bg-focusHero p-5 items-center justify-center">
+                        <Text className="text-lg font-fredoka-medium text-deepBrown mt-3">
+                            Failed to load tasks. Please try again.
+                        </Text>
+                        <TouchableOpacity
+                            onPress={handleRefresh}
+                            activeOpacity={0.7}
+                            className="mt-4 bg-focusHero text-white px-6 py-3 rounded-xl font-fredoka-semibold"
+                        >
+                            Retry
+                        </TouchableOpacity>
+                    </View>
                 ) : (
                     <HeroCard
                         task={heroTask}
@@ -595,7 +621,7 @@ export default function HomeScreen() {
             </View>
 
             {/* Other tasks title + sort + edit button — fixed (hidden when no other tasks remain) */}
-            {!tasksLoading && otherTasks.length > 0 && (
+            {!tasksLoading && !taskError && otherTasks.length > 0 && (
                 <View className="mt-8">
                     <OtherTasksHeader
                         editMode={editMode}
@@ -617,7 +643,7 @@ export default function HomeScreen() {
                 }
             >
                 {/* Other tasks — stacked queue preview with expand/collapse */}
-                {!tasksLoading && (
+                {!tasksLoading && !taskError && (
                     <OtherTasks
                         tasks={otherTasks}
                         onToggleTask={handleToggleTask}
@@ -633,11 +659,27 @@ export default function HomeScreen() {
                 )}
 
                 {/* Daily habits — horizontal carousel */}
-                {!habitsLoading && (
+                {!habitsLoading && !habitsError && (
                     <DailyHabits
                         habits={habits}
                         onToggleHabit={handleToggleHabit}
                     />
+                )}
+
+                {/* Error states for habits and tasks */}
+                {habitsError && !habitsLoading && (
+                    <View className="mt-8">
+                        <Text className="text-base font-fredoka text-deepBrown">
+                            Failed to load habits. Please try again.
+                        </Text>
+                        <TouchableOpacity
+                            onPress={handleRefresh}
+                            activeOpacity={0.7}
+                            className="bg-focusHero text-white px-6 py-3 rounded-xl font-fredoka-semibold"
+                        >
+                            Retry
+                        </TouchableOpacity>
+                    </View>
                 )}
             </ScrollView>
 

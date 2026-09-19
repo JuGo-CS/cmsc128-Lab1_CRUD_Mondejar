@@ -77,6 +77,7 @@ export default function CalendarScreen() {
     // The global task queue (Home owns ordering). Calendar is a filtered view.
     const [tasks, setTasks] = useState<HomeTask[]>([]);
     const [loading, setLoading] = useState(true);
+    const [taskError, setTaskError] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
     // The global sort mode, owned by Home. Calendar only reflects it.
     const [sortCriteria, setSortCriteria] = useState<HomeSortCriteria>('manual');
@@ -113,6 +114,7 @@ export default function CalendarScreen() {
     // queue — it never reorders, re-sorts, or modifies positions. The task
     // filter is applied separately in the render so changing it doesn't refetch.
     const refreshTasks = useCallback(() => {
+        setTaskError(false); // reset error at start of fetch
         return Promise.all([fetchPendingTaskQueue(), getHomeSortCriteria()])
             .then(([queue, sortMode]) => {
                 setSortCriteria(sortMode);
@@ -121,6 +123,7 @@ export default function CalendarScreen() {
             })
             .catch((err) => {
                 console.error('Failed to load tasks for date:', err);
+                setTaskError(true);
             })
             .finally(() => {
                 setLoading(false);
@@ -133,10 +136,12 @@ export default function CalendarScreen() {
         useCallback(() => {
             let active = true;
             setLoading(true);
+            setTaskError(false); // reset error at start of fetch
             refreshTasks()
                 .catch((err) => {
                     if (active) {
                         console.error('Failed to load tasks for date:', err);
+                        setTaskError(true);
                     }
                 })
                 .finally(() => {
@@ -313,6 +318,7 @@ export default function CalendarScreen() {
     const handleRefresh = useCallback(() => {
         if (refreshing) return;
         setRefreshing(true);
+        setTaskError(false); // reset error on refresh
         refreshTasks().finally(() => {
             setRefreshing(false);
         });
@@ -442,6 +448,19 @@ export default function CalendarScreen() {
                     <Text className="text-base font-fredoka text-mutedBrown">
                         Loading your queue...
                     </Text>
+                ) : taskError ? (
+                    <View className="flex-1 items-center p-6">
+                        <Text className="text-lg font-fredoka-medium text-deepBrown">
+                            Failed to load tasks. Please try again.
+                        </Text>
+                        <TouchableOpacity
+                            onPress={handleRefresh}
+                            activeOpacity={0.7}
+                            className="mt-4 bg-focusHero text-white px-6 py-3 rounded-xl font-fredoka-semibold"
+                        >
+                            Retry
+                        </TouchableOpacity>
+                    </View>
                 ) : filteredTasks.length === 0 ? (
                     <Text className="text-base font-fredoka text-mutedBrown">
                         Nothing in your queue for this day. Enjoy the calm!
@@ -483,7 +502,11 @@ export default function CalendarScreen() {
                     setDeleteModalVisible(false);
                     setDeletingTask(null);
                 }}
-                onConfirmDelete={(log) => handleConfirmDelete(deletingTask!)}
+                onConfirmDelete={() => {
+                    if (deletingTask) {
+                        handleConfirmDelete(deletingTask);
+                    }
+                }}
                 deleting={deleting}
             />
 
