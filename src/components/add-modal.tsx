@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
     View,
     Text,
@@ -27,8 +27,6 @@ interface AddModalProps {
     /** Called only after a successful HABIT save (not tasks). */
     onHabitSaved?: () => void;
 }
-
-type AddType = 'task' | 'habit';
 
 // Priority options for the task form.
 const PRIORITY_OPTIONS: { value: string; label: string }[] = [
@@ -329,8 +327,10 @@ export default function AddModal({ visible, onClose, onSaved, onTaskSaved, onHab
                                         <Text className="text-sm font-fredoka text-[#C0392B] mb-4">
                                             {titleError}
                                         </Text>
+                                        
                                     )}
 
+                                    {/* Description */}
                                     <Text className="text-sm font-fredoka-semibold text-mutedBrown mb-2">Description</Text>
                                     <TextInput
                                         value={description}
@@ -373,6 +373,7 @@ export default function AddModal({ visible, onClose, onSaved, onTaskSaved, onHab
                                         )}
                                     </View>
 
+                                    {/* Deadline */}
                                     <Text className="text-sm font-fredoka-semibold text-mutedBrown mb-2">Deadline</Text>
                                     <TouchableOpacity
                                         onPress={() => setDeadlinePickerVisible(true)}
@@ -401,6 +402,7 @@ export default function AddModal({ visible, onClose, onSaved, onTaskSaved, onHab
                                         </Text>
                                     )}
 
+                                    {/* Priority */}
                                     <Text className="text-sm font-fredoka-semibold text-mutedBrown mb-2">Priority</Text>
                                     <View className="flex-row mb-4">
                                         {PRIORITY_OPTIONS.map((opt) => {
@@ -496,7 +498,8 @@ export default function AddModal({ visible, onClose, onSaved, onTaskSaved, onHab
 
                                     {/* Error message */}
                                     {error && (
-                                        <Text className="text-sm font-fredoka text-[#C0392B] mb-3">{error}</Text>
+                                        <Text className="text-sm font-fredoka text-[#C0392B] mb-3">{error}
+                                        </Text>
                                     )}
 
                                     {/* Save button */}

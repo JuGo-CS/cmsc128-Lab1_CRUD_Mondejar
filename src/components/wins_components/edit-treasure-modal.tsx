@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
     View,
     Text,
@@ -461,5 +461,5 @@ export default function EditTreasureModal({
                 </View>
             </KeyboardAvoidingView>
         </Modal>
-        );
+    );
 }
