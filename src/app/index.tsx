@@ -156,7 +156,16 @@ export default function HomeScreen() {
     // Load the pending task queue whenever the screen gains focus.
     useFocusEffect(
         useCallback(() => {
-            refreshTasks();
+            let active = true;
+            refreshTasks()
+                .catch((err) => {
+                    if (active) {
+                        console.error('Failed to load task queue:', err);
+                    }
+                });
+            return () => {
+                active = false;
+            };
         }, [refreshTasks])
     );
 
@@ -178,7 +187,7 @@ export default function HomeScreen() {
                     if (active) setHabits(habitsData);
                 })
                 .catch((err) => {
-                    console.error('Failed to load habits:', err);
+                    if (active) console.error('Failed to load habits:', err);
                 })
                 .finally(() => {
                     if (active) setHabitsLoading(false);
@@ -198,7 +207,7 @@ export default function HomeScreen() {
                 if (isMounted) setCategories(data);
             })
             .catch((err) => {
-                console.error('Failed to load categories:', err);
+                if (isMounted) console.error('Failed to load categories:', err);
             });
         return () => {
             isMounted = false;

@@ -131,8 +131,20 @@ export default function CalendarScreen() {
     // focus so newly created tasks appear after the Add modal closes.
     useFocusEffect(
         useCallback(() => {
+            let active = true;
             setLoading(true);
-            refreshTasks();
+            refreshTasks()
+                .catch((err) => {
+                    if (active) {
+                        console.error('Failed to load tasks for date:', err);
+                    }
+                })
+                .finally(() => {
+                    if (active) setLoading(false);
+                });
+            return () => {
+                active = false;
+            };
         }, [refreshTasks])
     );
 
@@ -152,7 +164,7 @@ export default function CalendarScreen() {
                 if (isMounted) setCategories(data);
             })
             .catch((err) => {
-                console.error('Failed to load categories:', err);
+                if (isMounted) console.error('Failed to load categories:', err);
             });
         return () => {
             isMounted = false;

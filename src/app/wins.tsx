@@ -180,7 +180,20 @@ export default function WinsScreen() {
     // Refetch whenever the screen gains focus so newly completed tasks appear.
     useFocusEffect(
         useCallback(() => {
-            refresh();
+            let active = true;
+            setLoading(true);
+            refresh()
+                .catch((err) => {
+                    if (active) {
+                        console.error('Failed to load treasures:', err);
+                    }
+                })
+                .finally(() => {
+                    if (active) setLoading(false);
+                });
+            return () => {
+                active = false;
+            };
         }, [refresh])
     );
 
