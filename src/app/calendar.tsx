@@ -47,16 +47,16 @@ function toTreasureLog(task: HomeTask): TreasureLog {
     };
 }
 
-/** Today's date as `YYYY-MM-DD` in local time (default selected date). */
+// Today's date as `YYYY-MM-DD` in local time (default selected date).
 function todayDateString(): string {
     const now = new Date();
     const year = now.getFullYear();
     const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
+    let day = String(now.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
 }
 
-/** Format a `YYYY-MM-DD` date into "September 12" style label. */
+// Format a `YYYY-MM-DD` date into "September 12" style label.
 function formatDateLabel(dateStr: string): string {
     const [year, month, day] = dateStr.split('-').map(Number);
     const date = new Date(year, month - 1, day);
@@ -197,7 +197,7 @@ export default function CalendarScreen() {
     };
 
     // Mark a task as completed (goes to Treasures via the existing logic).
-    const handleCompleteTask = (task: HomeTask) => {
+    const handleCompleteTask = useCallback((task: HomeTask) => {
         const wasHero = task.isFocus === true;
 
         // 1. Optimistically update the state: remove the task from the tasks array.
@@ -222,7 +222,7 @@ export default function CalendarScreen() {
                 undoTaskCompletion(task, wasHero, false); // Internal rollback: no toast from undo function.
                 setToast({ message: 'Failed to complete task. Please try again.', undoLabel: undefined });
             });
-    };
+    }, []);
 
     // Open the edit modal for a task.
     const handleEditTask = (task: HomeTask) => {
@@ -310,10 +310,6 @@ export default function CalendarScreen() {
             });
     };
 
-    if (!fontsLoaded) {
-        return null;
-    }
-
     // Pull-to-refresh: refetch the global queue, guarding against duplicate runs.
     const handleRefresh = useCallback(() => {
         if (refreshing) return;
@@ -340,6 +336,10 @@ export default function CalendarScreen() {
     // global order. This is a local view filter — it never reorders or modifies
     // the global queue.
     const filteredTasks = filterTasks(tasks, filterCriteria, filterValue);
+
+    if (!fontsLoaded) {
+        return null;
+    }
 
     return (
         <View className="flex-1 bg-cozyBg pt-14 px-5">

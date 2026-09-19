@@ -206,13 +206,13 @@ export default function WinsScreen() {
     }, [refresh]);
 
     // Handle editing a treasure's title.
-    const handleEditLog = (log: TreasureLog) => {
+    const handleEditLog = useCallback((log: TreasureLog) => {
         setEditingLog(log);
         setEditModalVisible(true);
-    };
+    }, []);
 
     // Handle confirming the edited treasure, then refresh the logbook.
-    const handleConfirmEdit = (payload: {
+    const handleConfirmEdit = useCallback((payload: {
         status: 'completed' | 'pending';
         title: string;
         description: string | null;
@@ -264,16 +264,16 @@ export default function WinsScreen() {
             .finally(() => {
                 setSaving(false);
             });
-    };
+    }, [editingLog, setSaving, setEditModalVisible, setEditingLog, setToast, restoreTaskSnapshot, fetchTreasureGroups, emitTaskDataChanged]);
 
     // Handle tapping Delete — open the confirmation dialog (does not delete yet).
-    const handleDeleteLog = (log: TreasureLog) => {
+    const handleDeleteLog = useCallback((log: TreasureLog) => {
         setDeletingLog(log);
         setDeleteModalVisible(true);
-    };
+    }, []);
 
     // Handle confirming the permanent deletion. Only deletes after confirmation.
-    const handleConfirmDelete = (log: TreasureLog) => {
+    const handleConfirmDelete = useCallback((log: TreasureLog) => {
         setDeleting(true);
         deleteTreasure(log.id)
             .then(() => {
@@ -313,17 +313,17 @@ export default function WinsScreen() {
             .finally(() => {
                 setDeleting(false);
             });
-    };
+    }, [deletingLog, setDeleting, setDeleteModalVisible, setDeletingLog, setToast, restoreTreasure, fetchTreasureGroups, emitTaskDataChanged]);
 
     // Jump the logbook to the selected date. Does NOT filter — the whole
     // logbook stays scrollable so the user can continue browsing nearby days.
-    const handleSelectDate = (date: string) => {
+    const handleSelectDate = useCallback((date: string) => {
         setSelectedDate(date);
         const y = dateOffsets.current[date];
         if (y != null) {
             scrollRef.current?.scrollTo({ y, animated: true });
         }
-    };
+    }, []); // scrollRef and dateOffsets are refs, stable
 
     // Pull-to-refresh: refetch treasures, guarding against duplicate runs.
     const handleRefresh = useCallback(() => {

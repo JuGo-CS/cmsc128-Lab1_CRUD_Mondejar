@@ -1,8 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { View, Text, ScrollView, ActivityIndicator, RefreshControl, TouchableOpacity } from 'react-native';
 import { useFonts, Fredoka_400Regular, Fredoka_500Medium, Fredoka_600SemiBold, Fredoka_700Bold } from '@expo-google-fonts/fredoka';
 import * as SplashScreen from 'expo-splash-screen';
-import { useEffect, useCallback } from 'react';
 import { useFocusEffect } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { subscribeToTaskChanges, emitTaskDataChanged } from '@/lib/data-events';
@@ -223,12 +222,6 @@ export default function HomeScreen() {
         };
     }, []);
 
-    // 2. NOW IT IS SAFE TO DO EARLY RETURNS (All hooks have been registered)
-    if (!fontsLoaded) {
-        return null;
-    }
-
-
     // The queue state is kept already ordered (hero first, then the active sort
     // order) so the Other Tasks list updates immediately when a task change is
     // emitted — no re-sort is needed on render.
@@ -252,7 +245,7 @@ export default function HomeScreen() {
     // Undo a task completion: restore it to the active queue, re-sync positions,
     // and refresh the UI. Shows a success toast on success, an error toast on failure.
     // If showToast is false, no toast is shown (used for internal rollback).
-    const undoTaskCompletion = (task: TaskItemData, wasHero: boolean, showToast: boolean = true) => {
+    const undoTaskCompletion = useCallback((task: TaskItemData, wasHero: boolean, showToast: boolean = true) => {
         undoCompleteTask(task.id, wasHero)
             .then(() => fetchPendingTaskQueue())
             .then((tasks) => {
@@ -271,10 +264,10 @@ export default function HomeScreen() {
                     setToast({ message: 'Could not undo. Please try again.' });
                 }
             });
-    };
+    }, [syncPositions, emitTaskDataChanged]);
 
     // Undo a task deletion: restore the deleted task and refresh the UI.
-    const undoTaskDeletion = (task: HomeTask) => {
+    const undoTaskDeletion = useCallback((task: HomeTask) => {
         restoreTask(task)
             .then(() => fetchPendingTaskQueue())
             .then((tasks) => {
@@ -289,11 +282,11 @@ export default function HomeScreen() {
                 console.error('Failed to undo task deletion:', err);
                 setToast({ message: 'Could not undo. Please try again.' });
             });
-    };
+    }, [syncPositions, emitTaskDataChanged]);
 
     // Undo a habit completion: remove today's log so the habit reappears.
     // If showToast is false, no toast is shown (used for internal rollback).
-    const undoHabit = (habit: HabitData, showToast: boolean = true) => {
+    const undoHabit = useCallback((habit: HabitData, showToast: boolean = true) => {
         undoHabitCompletion(habit.id)
             .then(() => {
                 setHabits((prev) => (prev.some((h) => h.id === habit.id) ? prev : [...prev, habit]));
@@ -307,10 +300,10 @@ export default function HomeScreen() {
                     setToast({ message: 'Could not undo. Please try again later.' });
                 }
             });
-    };
+    }, [setHabits, setToast]);
 
     // Completing the Hero Task promotes the next task in line.
-    const handleHeroComplete = (task: TaskItemData) => {
+    const handleHeroComplete = useCallback((task: TaskItemData) => {
         const wasHero = task.isFocus === true;
 
         // 1. Optimistically update the state: remove the hero task and promote the next task.
@@ -339,9 +332,9 @@ export default function HomeScreen() {
                 undoTaskCompletion(task, wasHero, false); // Internal rollback: no toast from undo function.
                 setToast({ message: 'Failed to complete task. Please try again.', undoLabel: undefined });
             });
-    };
+    }, [taskQueue, sortCriteria, syncPositions, undoTaskCompletion, completeTask, emitTaskDataChanged]);
 
-    const handleToggleTask = (task: TaskItemData) => {
+    const handleToggleTask = useCallback((task: TaskItemData) => {
         const wasHero = task.isFocus === true;
 
         // 1. Optimistically update the state.
@@ -371,17 +364,17 @@ export default function HomeScreen() {
                 undoTaskCompletion(task, wasHero, false);
                 setToast({ message: 'Failed to toggle task. Please try again.', undoLabel: undefined });
             });
-    };
+    }, [taskQueue, sortCriteria, syncPositions, undoTaskCompletion, completeTask, emitTaskDataChanged]);
 
     // Toggle edit mode for the Other tasks section.
-    const handleToggleEdit = () => {
+    const handleToggleEdit = useCallback(() => {
         setEditMode((prev) => !prev);
-    };
+    }, []);
 
     // Change the active sort criterion for the Other tasks queue.
     // The new sorted order of the non-Hero tasks is persisted to `position`,
     // and the sort mode is persisted so Calendar reflects the same mode.
-    const handleChangeSort = (criteria: HomeSortCriteria) => {
+    const handleChangeSort = useCallback((criteria: HomeSortCriteria) => {
         setSortCriteria(criteria);
         Promise.all([setHomeSortCriteria(criteria), syncPositions(taskQueue, criteria)])
             .then(() => {
@@ -390,10 +383,10 @@ export default function HomeScreen() {
             .catch((err) => {
                 console.error('Failed to persist sort order:', err);
             });
-    };
+    }, [setHomeSortCriteria, syncPositions, emitTaskDataChanged]);
 
     // Make the given task the Hero Task. Persists `is_focus` to Supabase.
-    const handleMakeHero = (task: TaskItemData) => {
+    const handleMakeHero = useCallback((task: TaskItemData) => {
         setHeroTask(task.id)
             .then(() => {
                 // The DB now has exactly one `is_focus` task. Refetch so the
@@ -411,10 +404,10 @@ export default function HomeScreen() {
             .catch((err) => {
                 console.error('Failed to set hero task:', err);
             });
-    };
+    }, [setHeroTask, fetchPendingTaskQueue, setTaskQueue, syncPositions, emitTaskDataChanged]);
 
     // Persist a manual drag reorder of the non-Hero tasks.
-    const handleReorder = (orderedOtherIds: string[]) => {
+    const handleReorder = useCallback((orderedOtherIds: string[]) => {
         // Build the new queue (hero first, then the dragged non-Hero order).
         const hero = taskQueue.find((t) => t.isFocus) ?? null;
         const orderedOthers = orderedOtherIds
@@ -435,16 +428,16 @@ export default function HomeScreen() {
             .catch((err) => {
                 console.error('Failed to persist reorder:', err);
             });
-    };
+    }, [taskQueue, setSortCriteria, setTaskQueue, syncPositions, emitTaskDataChanged]);
 
     // Open the edit modal for a task (edit mode → tap body → Edit).
-    const handleEditTask = (task: TaskItemData) => {
+    const handleEditTask = useCallback((task: TaskItemData) => {
         setEditingTask(task as HomeTask);
         setEditModalVisible(true);
-    };
+    }, []);
 
     // Confirm the edited task, then refresh the queue.
-    const handleConfirmEdit = (payload: {
+    const handleConfirmEdit = useCallback((payload: {
         status: 'completed' | 'pending';
         title: string;
         description: string | null;
@@ -477,10 +470,10 @@ export default function HomeScreen() {
             .finally(() => {
                 setSaving(false);
             });
-    };
+    }, [refreshTasks, emitTaskDataChanged]);
 
     // Undo a task edit: restore the pre-edit snapshot and refresh the UI.
-    const undoTaskEdit = (snapshot: TaskSnapshot) => {
+    const undoTaskEdit = useCallback((snapshot: TaskSnapshot) => {
         restoreTaskSnapshot(snapshot)
             .then(() => fetchPendingTaskQueue())
             .then((fetchedTasks) => {
@@ -495,16 +488,16 @@ export default function HomeScreen() {
                 console.error('Failed to undo task edit:', err);
                 setToast({ message: 'Could not undo. Please try again.' });
             });
-    };
+    }, [syncPositions, emitTaskDataChanged]);
 
     // Open the delete confirmation for a task (edit mode → tap body → Delete).
-    const handleDeleteTask = (task: TaskItemData) => {
+    const handleDeleteTask = useCallback((task: TaskItemData) => {
         setDeletingTask(task as HomeTask);
         setDeleteModalVisible(true);
-    };
+    }, []);
 
     // Confirm the permanent deletion, then refresh the queue.
-    const handleConfirmDelete = (task: HomeTask) => {
+    const handleConfirmDelete = useCallback((task: HomeTask) => {
         setDeleting(true);
         deleteTreasure(task.id)
             .then(() => {
@@ -525,7 +518,7 @@ export default function HomeScreen() {
             .finally(() => {
                 setDeleting(false);
             });
-    };
+    }, [refreshTasks, emitTaskDataChanged]);
 
     // Pull-to-refresh: refetch tasks + habits, guarding against duplicate runs.
     const handleRefresh = useCallback(() => {
@@ -544,7 +537,7 @@ export default function HomeScreen() {
             });
     }, [refreshing, refreshTasks]);
 
-    const handleToggleHabit = (habit: HabitData) => {
+    const handleToggleHabit = useCallback((habit: HabitData) => {
         // 1. Optimistically update the state: remove the habit from the list.
         setHabits(prev => prev.filter(h => h.id !== habit.id));
 
@@ -567,7 +560,11 @@ export default function HomeScreen() {
                 undoHabit(habit, false);
                 setToast({ message: 'Failed to complete habit. Please try again.', undoLabel: undefined });
             });
-    };
+    }, [setHabits, setToast, undoHabit, logHabitCompletion, emitTaskDataChanged]);
+
+    if (!fontsLoaded) {
+        return null;
+    }
 
     return (
         <View className="flex-1 bg-cozyBg pt-14 px-5">

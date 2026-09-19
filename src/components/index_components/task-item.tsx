@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import TaskActions from '@/components/ui/task-actions';
@@ -47,7 +47,7 @@ interface TaskItemProps {
 
 // A single task row with an icon on the left and a checkbox on the right.
 // Titles are truncated with an ellipsis when they are too long.
-export default function TaskItem({
+function TaskItem({
     task,
     onToggle,
     compact,
@@ -162,3 +162,32 @@ export default function TaskItem({
         </View>
     );
 }
+
+function areEqual(prevProps: TaskItemProps, nextProps: TaskItemProps): boolean {
+    return (
+        prevProps.compact === nextProps.compact &&
+        prevProps.muted === nextProps.muted &&
+        prevProps.editMode === nextProps.editMode &&
+        prevProps.isHero === nextProps.isHero &&
+        prevProps.showActions === nextProps.showActions &&
+        // Compare task
+        prevProps.task.id === nextProps.task.id &&
+        prevProps.task.title === nextProps.task.title &&
+        prevProps.task.iconName === nextProps.task.iconName &&
+        prevProps.task.completed === nextProps.task.completed &&
+        prevProps.task.priority === nextProps.task.priority &&
+        prevProps.task.deadline === nextProps.task.deadline &&
+        prevProps.task.categoryName === nextProps.task.categoryName &&
+        prevProps.task.createdAt === nextProps.task.createdAt &&
+        prevProps.task.position === nextProps.task.position &&
+        prevProps.task.isFocus === nextProps.task.isFocus &&
+        // Compare function props (by reference)
+        prevProps.onToggle === nextProps.onToggle &&
+        prevProps.onMakeHero === nextProps.onMakeHero &&
+        prevProps.onToggleActions === nextProps.onToggleActions &&
+        prevProps.onEdit === nextProps.onEdit &&
+        prevProps.onDelete === nextProps.onDelete
+    );
+}
+
+export default memo(TaskItem, areEqual);

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { HabitData } from '@/features/habits/habits.types';
@@ -10,7 +10,7 @@ interface HabitCardProps {
 
 // A single habit card — green background, emoji, title, and a checkbox.
 // The entire card is touchable; tapping anywhere marks the habit as completed.
-export default function HabitCard({ habit, onToggle }: HabitCardProps) {
+function HabitCard({ habit, onToggle }: HabitCardProps) {
     return (
         <TouchableOpacity
             onPress={() => onToggle?.(habit)}
@@ -44,3 +44,15 @@ export default function HabitCard({ habit, onToggle }: HabitCardProps) {
         </TouchableOpacity>
     );
 }
+
+function areEqual(prevProps: HabitCardProps, nextProps: HabitCardProps): boolean {
+    return (
+        prevProps.habit.id === nextProps.habit.id &&
+        prevProps.habit.title === nextProps.habit.title &&
+        prevProps.habit.emoji === nextProps.habit.emoji &&
+        prevProps.habit.completed === nextProps.habit.completed &&
+        prevProps.onToggle === nextProps.onToggle
+    );
+}
+
+export default memo(HabitCard, areEqual);

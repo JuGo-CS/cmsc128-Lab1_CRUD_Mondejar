@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { memo, useState } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import TaskActions from '@/components/ui/task-actions';
@@ -24,7 +24,7 @@ interface TreasureLogCardProps {
 
 // A single completed task log card ("Treasure") displayed under a date group.
 // Tapping the card reveals Edit and Delete actions.
-export default function TreasureLogCard({ log, onEdit, onDelete }: TreasureLogCardProps) {
+function TreasureLogCard({ log, onEdit, onDelete }: TreasureLogCardProps) {
     const [showActions, setShowActions] = useState(false);
 
     return (
@@ -64,3 +64,16 @@ export default function TreasureLogCard({ log, onEdit, onDelete }: TreasureLogCa
         </View>
     );
 }
+
+function areEqual(prevProps: TreasureLogCardProps, nextProps: TreasureLogCardProps): boolean {
+    return (
+        prevProps.log.id === nextProps.log.id &&
+        prevProps.log.title === nextProps.log.title &&
+        prevProps.log.iconName === nextProps.log.iconName &&
+        prevProps.log.completedTime === nextProps.log.completedTime &&
+        prevProps.onEdit === nextProps.onEdit &&
+        prevProps.onDelete === nextProps.onDelete
+    );
+}
+
+export default memo(TreasureLogCard, areEqual);
