@@ -78,7 +78,7 @@ export default function HomeScreen() {
 
     // Whether the "Other tasks" section is in edit mode (drag + hero selection).
     const [editMode, setEditMode] = useState(false);
-    
+
     // Active sort criterion for the "Other tasks" queue.
     const [sortCriteria, setSortCriteria] = useState<HomeSortCriteria>('manual');
 
@@ -233,20 +233,25 @@ export default function HomeScreen() {
 
     // Undo a task completion: restore it to the active queue, re-sync positions,
     // and refresh the UI. Shows a success toast on success, an error toast on failure.
-    const undoTaskCompletion = (task: TaskItemData, wasHero: boolean) => {
+    // If showToast is false, no toast is shown (used for internal rollback).
+    const undoTaskCompletion = (task: TaskItemData, wasHero: boolean, showToast: boolean = true) => {
         undoCompleteTask(task.id, wasHero)
             .then(() => fetchPendingTaskQueue())
             .then((tasks) => {
                 const nextQueue = tasks as HomeTask[];
                 setTaskQueue(nextQueue);
                 return syncPositions(nextQueue, sortCriteria).then(() => {
-                    setToast({ message: 'Task restored.' });
+                    if (showToast) {
+                        setToast({ message: 'Task restored.' });
+                    }
                     emitTaskDataChanged();
                 });
             })
             .catch((err) => {
                 console.error('Failed to undo task completion:', err);
-                setToast({ message: 'Could not undo. Please try again.' });
+                if (showToast) {
+                    setToast({ message: 'Could not undo. Please try again.' });
+                }
             });
     };
 
@@ -269,69 +274,84 @@ export default function HomeScreen() {
     };
 
     // Undo a habit completion: remove today's log so the habit reappears.
-    const undoHabit = (habit: HabitData) => {
+    // If showToast is false, no toast is shown (used for internal rollback).
+    const undoHabit = (habit: HabitData, showToast: boolean = true) => {
         undoHabitCompletion(habit.id)
             .then(() => {
                 setHabits((prev) => (prev.some((h) => h.id === habit.id) ? prev : [...prev, habit]));
-                setToast({ message: 'Habit restored.' });
+                if (showToast) {
+                    setToast({ message: 'Habit restored.' });
+                }
             })
             .catch((err) => {
                 console.error('Failed to undo habit completion:', err);
-                setToast({ message: 'Could not undo. Please try again later.' });
+                if (showToast) {
+                    setToast({ message: 'Could not undo. Please try again later.' });
+                }
             });
     };
 
     // Completing the Hero Task promotes the next task in line.
     const handleHeroComplete = (task: TaskItemData) => {
-        // Persist completion to the database first. Only update the frontend
-        // once the write succeeds, so the UI never shows it as done on failure.
         const wasHero = task.isFocus === true;
+
+        // 1. Optimistically update the state: remove the hero task and promote the next task.
+        const optimisticNextQueue = taskQueue.filter((t) => t.id !== task.id);
+        setTaskQueue(optimisticNextQueue);
+        // Persist the new positions (non-hero tasks) optimistically.
+        syncPositions(optimisticNextQueue, sortCriteria).catch(console.error);
+
+        // 2. Show a toast with an undo option.
+        setToast({
+            message: 'Task completed!',
+            undoLabel: 'Undo',
+            onUndo: () => undoTaskCompletion(task, wasHero, true), // User-initiated undo shows a toast.
+        });
+
+        // 3. Persist the completion to the database.
         completeTask(task.id)
             .then(() => {
-                // Refetch the queue: the completed task is gone and the next
-                // task has been promoted to Hero. This also gives us the latest
-                // order so we can recalculate positions.
-                return fetchPendingTaskQueue().then((tasks) => {
-                    const nextQueue = tasks as HomeTask[];
-                    setTaskQueue(nextQueue);
-                    return syncPositions(nextQueue, sortCriteria).then(() => {
-                        setToast({
-                            message: 'Task complete!',
-                            undoLabel: 'Undo',
-                            onUndo: () => undoTaskCompletion(task, wasHero),
-                        });
-                        emitTaskDataChanged();
-                    });
-                });
+                // On success, we do nothing to the toast (the undo toast remains until user action).
+                // The state is already updated optimistically, and the database is now consistent.
+                emitTaskDataChanged();
             })
             .catch((err) => {
                 console.error('Failed to complete hero task:', err);
+                // Rollback the optimistic update.
+                undoTaskCompletion(task, wasHero, false); // Internal rollback: no toast from undo function.
+                setToast({ message: 'Failed to complete task. Please try again.', undoLabel: undefined });
             });
     };
 
     const handleToggleTask = (task: TaskItemData) => {
-        // Persist completion to the database first. Only update the frontend
-        // once the write succeeds, so the UI never shows it as done on failure.
         const wasHero = task.isFocus === true;
+
+        // 1. Optimistically update the state.
+        const optimisticNextQueue = taskQueue.map((t) =>
+            t.id === task.id ? { ...t, completed: !t.completed } : t
+        );
+        setTaskQueue(optimisticNextQueue);
+        // Persist the new positions (non-hero tasks) optimistically.
+        syncPositions(optimisticNextQueue, sortCriteria).catch(console.error);
+
+        // 2. Show a toast with an undo option.
+        setToast({
+            message: task.completed ? 'Task undone!' : 'Task complete!',
+            undoLabel: 'Undo',
+            onUndo: () => undoTaskCompletion(task, wasHero, true),
+        });
+
+        // 3. Persist the toggle to the database.
         completeTask(task.id)
             .then(() => {
-                // Refetch the queue so the completed task is removed and the
-                // remaining non-Hero positions are recalculated (no gap).
-                return fetchPendingTaskQueue().then((tasks) => {
-                    const nextQueue = tasks as HomeTask[];
-                    setTaskQueue(nextQueue);
-                    return syncPositions(nextQueue, sortCriteria).then(() => {
-                        setToast({
-                            message: 'Task complete! One less thing to worry about.',
-                            undoLabel: 'Undo',
-                            onUndo: () => undoTaskCompletion(task, wasHero),
-                        });
-                        emitTaskDataChanged();
-                    });
-                });
+                // On success, do nothing to the toast.
+                emitTaskDataChanged();
             })
             .catch((err) => {
-                console.error('Failed to complete task:', err);
+                console.error('Failed to toggle task:', err);
+                // Rollback the optimistic update.
+                undoTaskCompletion(task, wasHero, false);
+                setToast({ message: 'Failed to toggle task. Please try again.', undoLabel: undefined });
             });
     };
 
@@ -503,20 +523,27 @@ export default function HomeScreen() {
     }, [refreshing, refreshTasks]);
 
     const handleToggleHabit = (habit: HabitData) => {
-        // Persist completion through the `habit_logs` table (database-backed).
-        // Only update the frontend once the write succeeds.
+        // 1. Optimistically update the state: remove the habit from the list.
+        setHabits(prev => prev.filter(h => h.id !== habit.id));
+
+        // 2. Show a toast with an undo option.
+        setToast({
+            message: 'Habit completed!',
+            undoLabel: 'Undo',
+            onUndo: () => undoHabit(habit, true),
+        });
+
+        // 3. Persist the completion to the database.
         logHabitCompletion(habit.id)
             .then(() => {
-                // Remove it from the Daily Habits list once logged successfully.
-                setHabits((prev) => prev.filter((h) => h.id !== habit.id));
-                setToast({
-                    message: 'Habit completed!',
-                    undoLabel: 'Undo',
-                    onUndo: () => undoHabit(habit),
-                });
+                // On success, do nothing to the toast.
+                emitTaskDataChanged();
             })
             .catch((err) => {
                 console.error('Failed to complete habit:', err);
+                // Rollback the optimistic update.
+                undoHabit(habit, false);
+                setToast({ message: 'Failed to complete habit. Please try again.', undoLabel: undefined });
             });
     };
 

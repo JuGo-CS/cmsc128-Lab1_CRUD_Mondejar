@@ -159,34 +159,51 @@ export default function CalendarScreen() {
         };
     }, []);
 
+    // Undo a task completion: restore it to the active queue, re-sync positions,
+    // and refresh the UI. Shows a success toast on success, an error toast on failure.
+    // If showToast is false, no toast is shown (used for internal rollback).
+    const undoTaskCompletion = (task: HomeTask, wasHero: boolean, showToast: boolean = true) => {
+        undoCompleteTask(task.id, wasHero)
+            .then(() => refreshTasks())
+            .then(() => {
+                if (showToast) {
+                    setToast({ message: 'Task restored.' });
+                }
+                emitTaskDataChanged();
+            })
+            .catch((err) => {
+                console.error('Failed to undo task completion:', err);
+                if (showToast) {
+                    setToast({ message: 'Could not undo. Please try again.' });
+                }
+            });
+    };
+
     // Mark a task as completed (goes to Treasures via the existing logic).
     const handleCompleteTask = (task: HomeTask) => {
-        // Capture whether the task was the Hero so Undo can restore it.
         const wasHero = task.isFocus === true;
+
+        // 1. Optimistically update the state: remove the task from the tasks array.
+        setTasks(prev => prev.filter(t => t.id !== task.id));
+
+        // 2. Show a toast with an undo option.
+        setToast({
+            message: 'Task completed!',
+            undoLabel: 'Undo',
+            onUndo: () => undoTaskCompletion(task, wasHero, true), // User-initiated undo shows a toast.
+        });
+
+        // 3. Persist the completion to the database.
         completeTask(task.id)
             .then(() => {
-                setTasks((prev) => prev.filter((t) => t.id !== task.id));
-                setToast({
-                    message: 'Task completed!',
-                    undoLabel: 'Undo',
-                    onUndo: () => {
-                        // Reuse the centralized completion undo: restore the task
-                        // to its previous state, then refetch the filtered view.
-                        undoCompleteTask(task.id, wasHero)
-                            .then(() => refreshTasks())
-                            .then(() => {
-                                setToast({ message: 'Task restored.' });
-                                emitTaskDataChanged();
-                            })
-                            .catch((err) => {
-                                console.error('Failed to undo task completion:', err);
-                                setToast({ message: 'Could not undo. Please try again.' });
-                            });
-                    },
-                });
+                // On success, do nothing to the toast (the undo toast remains until user action).
+                emitTaskDataChanged();
             })
             .catch((err) => {
                 console.error('Failed to complete task:', err);
+                // Rollback the optimistic update.
+                undoTaskCompletion(task, wasHero, false); // Internal rollback: no toast from undo function.
+                setToast({ message: 'Failed to complete task. Please try again.', undoLabel: undefined });
             });
     };
 
@@ -407,8 +424,6 @@ export default function CalendarScreen() {
                         )}
                     </View>
                 )}
-
-                
 
                 {/* Task cards */}
                 {loading ? (
