@@ -48,6 +48,17 @@ function formatDeadline(dateStr: string): string {
     });
 }
 
+/** Validate a deadline string in YYYY-MM-DD format. */
+function isValidDeadline(dateStr: string): boolean {
+    if (!dateStr) return true; // empty is allowed (optional)
+    const regex = /^\d{4}-\d{2}-\d{2}$/;
+    if (!regex.test(dateStr)) return false;
+    const [year, month, day] = dateStr.split('-').map(Number);
+    const date = new Date(year, month - 1, day);
+    // Check if the date is valid and not NaN
+    return date instanceof Date && !isNaN(date.getTime());
+}
+
 /** Today's date as `YYYY-MM-DD` in local time. */
 function todayDateString(): string {
     const now = new Date();
@@ -78,6 +89,8 @@ export default function AddModal({ visible, onClose, onSaved, onTaskSaved, onHab
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [titleError, setTitleError] = useState<string | null>(null);
+    const [descriptionError, setDescriptionError] = useState<string | null>(null);
+    const [deadlineError, setDeadlineError] = useState<string | null>(null);
 
     // Fetch categories when the modal opens, preselecting the first one so the
     // user doesn't have to manually choose before saving.
@@ -110,6 +123,8 @@ export default function AddModal({ visible, onClose, onSaved, onTaskSaved, onHab
             setHabitCatId(null);
             setError(null);
             setTitleError(null);
+            setDescriptionError(null);
+            setDeadlineError(null);
         }
     }, [visible]);
 
@@ -123,16 +138,38 @@ export default function AddModal({ visible, onClose, onSaved, onTaskSaved, onHab
 
     const handleSaveTask = () => {
         if (saving) return;
-        // Validate the title — show a friendly message and keep the modal open.
-        if (!canSaveTask) {
+        // Reset errors
+        setTitleError(null);
+        setDescriptionError(null);
+        setDeadlineError(null);
+        setError(null);
+
+        // Validate title
+        const trimmedTitle = title.trim();
+        if (trimmedTitle.length === 0) {
             setTitleError('Please enter a task title before saving.');
             return;
         }
-        setTitleError(null);
+        if (trimmedTitle.length > 100) {
+            setTitleError('Task title must be 100 characters or less.');
+            return;
+        }
+
+        // Validate description length (if provided)
+        if (description.trim().length > 500) {
+            setDescriptionError('Description must be 500 characters or less.');
+            return;
+        }
+
+        // Validate deadline format
+        if (!isValidDeadline(deadline.trim())) {
+            setDeadlineError('Please enter a valid date (YYYY-MM-DD).');
+            return;
+        }
+
         setSaving(true);
-        setError(null);
         createTask({
-            title: title.trim(),
+            title: trimmedTitle,
             description: description.trim() ? description.trim() : null,
             cat_id: catId,
             deadline: deadline.trim() ? deadline.trim() : null,
@@ -152,10 +189,24 @@ export default function AddModal({ visible, onClose, onSaved, onTaskSaved, onHab
 
     const handleSaveHabit = () => {
         if (!canSaveHabit || saving) return;
-        setSaving(true);
+        // Reset errors
         setError(null);
+        setTitleError(null); // for habit title
+
+        // Validate habit title
+        const trimmedHabitTitle = habitTitle.trim();
+        if (trimmedHabitTitle.length === 0) {
+            setTitleError('Please enter a habit title before saving.');
+            return;
+        }
+        if (trimmedHabitTitle.length > 100) {
+            setTitleError('Habit title must be 100 characters or less.');
+            return;
+        }
+
+        setSaving(true);
         createHabit({
-            title: habitTitle.trim(),
+            title: trimmedHabitTitle,
             cat_id: habitCatId,
         })
             .then(() => {
@@ -279,6 +330,11 @@ export default function AddModal({ visible, onClose, onSaved, onTaskSaved, onHab
                                         multiline
                                         className="bg-bgCardBg rounded-xl px-4 py-3 text-base font-fredoka text-deepBrown mb-4 min-h-[70px]"
                                     />
+                                    {descriptionError && (
+                                        <Text className="text-sm font-fredoka text-[#C0392B] mb-2">
+                                            {descriptionError}
+                                        </Text>
+                                    )}
 
                                     {/* Category options */}
                                     <Text className="text-sm font-fredoka-semibold text-mutedBrown mb-2">Category</Text>
@@ -329,6 +385,11 @@ export default function AddModal({ visible, onClose, onSaved, onTaskSaved, onHab
                                             <Ionicons name="chevron-forward" size={20} color="#7D6E6B" className="ml-auto" />
                                         )}
                                     </TouchableOpacity>
+                                    {deadlineError && (
+                                        <Text className="text-sm font-fredoka text-[#C0392B] mb-2">
+                                            {deadlineError}
+                                        </Text>
+                                    )}
 
                                     <Text className="text-sm font-fredoka-semibold text-mutedBrown mb-2">Priority</Text>
                                     <View className="flex-row mb-4">
@@ -391,6 +452,11 @@ export default function AddModal({ visible, onClose, onSaved, onTaskSaved, onHab
                                         placeholderTextColor="#7D6E6B"
                                         className="bg-bgCardBg rounded-xl px-4 py-3 text-base font-fredoka text-deepBrown mb-4"
                                     />
+                                    {titleError && (
+                                        <Text className="text-sm font-fredoka text-[#C0392B] mb-2">
+                                            {titleError}
+                                        </Text>
+                                    )}
 
                                     <Text className="text-sm font-fredoka-semibold text-mutedBrown mb-2">Category</Text>
                                     <View className="flex-row flex-wrap mb-4">
@@ -441,18 +507,18 @@ export default function AddModal({ visible, onClose, onSaved, onTaskSaved, onHab
                         </ScrollView>
                     </View>
                 </View>
-            </KeyboardAvoidingView>
+                </KeyboardAvoidingView>
 
-            {/* Deadline date picker */}
-            <WinsCalendarModal
-                visible={deadlinePickerVisible}
-                onClose={() => setDeadlinePickerVisible(false)}
-                onSelectDate={(date) => {
-                    setDeadline(date);
-                    setDeadlinePickerVisible(false);
-                }}
-                selectedDate={deadline || todayDateString()}
-            />
-        </Modal>
+                {/* Deadline date picker */}
+                <WinsCalendarModal
+                    visible={deadlinePickerVisible}
+                    onClose={() => setDeadlinePickerVisible(false)}
+                    onSelectDate={(date) => {
+                        setDeadline(date);
+                        setDeadlinePickerVisible(false);
+                    }}
+                    selectedDate={deadline || todayDateString()}
+                />
+            </Modal>
     );
 }
