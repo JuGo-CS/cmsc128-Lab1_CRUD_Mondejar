@@ -21,6 +21,7 @@ import {
 } from '@/features/treasures/treasures.api';
 import { TaskSnapshot } from '@/features/tasks/tasks.types';
 import { restoreTaskSnapshot } from '@/features/tasks/tasks.api';
+import { triggerHaptic } from '@/utils/haptics';
 
 
 // Placeholder treasure groups used when the database fetch hasn't loaded yet.
@@ -152,12 +153,6 @@ export default function WinsScreen() {
     const scrollRef = useRef<ScrollView>(null);
     const dateOffsets = useRef<Record<string, number>>({});
 
-    useEffect(() => {
-        if (fontsLoaded) {
-            SplashScreen.hideAsync();
-        }
-    }, [fontsLoaded]);
-
     // Refetch the completed task logs (Treasures) + categories from Supabase.
     // Used on focus, on pull-to-refresh, and when task data changes elsewhere.
     const refresh = useCallback(() => {
@@ -207,6 +202,8 @@ export default function WinsScreen() {
 
     // Handle editing a treasure's title.
     const handleEditLog = useCallback((log: TreasureLog) => {
+        triggerHaptic.light(); // Opening treasure for editing
+        triggerHaptic.medium(); // Opening modal
         setEditingLog(log);
         setEditModalVisible(true);
     }, []);
@@ -263,11 +260,14 @@ export default function WinsScreen() {
             })
             .finally(() => {
                 setSaving(false);
+                triggerHaptic.success(); // Successful update
             });
     }, [editingLog, setSaving, setEditModalVisible, setEditingLog, setToast, restoreTaskSnapshot, fetchTreasureGroups, emitTaskDataChanged]);
 
     // Handle tapping Delete — open the confirmation dialog (does not delete yet).
     const handleDeleteLog = useCallback((log: TreasureLog) => {
+        triggerHaptic.warning(); // Delete prompt
+        triggerHaptic.medium(); // Opening modal
         setDeletingLog(log);
         setDeleteModalVisible(true);
     }, []);
@@ -318,6 +318,7 @@ export default function WinsScreen() {
     // Jump the logbook to the selected date. Does NOT filter — the whole
     // logbook stays scrollable so the user can continue browsing nearby days.
     const handleSelectDate = useCallback((date: string) => {
+        triggerHaptic.light(); // Date selection
         setSelectedDate(date);
         const y = dateOffsets.current[date];
         if (y != null) {

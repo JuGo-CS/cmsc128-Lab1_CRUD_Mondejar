@@ -15,6 +15,7 @@ import { Category } from '@/features/treasures/treasures.types';
 import { createTask } from '@/features/tasks/tasks.api';
 import { createHabit } from '@/features/habits/habits.api';
 import WinsCalendarModal from '@/components/wins_components/wins-calendar-modal';
+import { triggerHaptic } from '@/utils/haptics';
 
 interface AddModalProps {
     visible: boolean;
@@ -71,6 +72,15 @@ function todayDateString(): string {
 // A modal to add a new Task or Daily Habit. Starts with a choice, then shows the
 // appropriate form. Saving is disabled until required fields are filled.
 export default function AddModal({ visible, onClose, onSaved, onTaskSaved, onHabitSaved }: AddModalProps) {
+    // Haptic feedback for modal open and close
+    useEffect(() => {
+        if (visible) {
+            triggerHaptic.medium(); // opening
+        } else {
+            triggerHaptic.medium(); // closing
+        }
+    }, [visible]);
+
     const [step, setStep] = useState<'choose' | 'task' | 'habit'>('choose');
     const [categories, setCategories] = useState<Category[]>([]);
 

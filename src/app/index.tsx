@@ -28,6 +28,7 @@ import {
 } from '@/features/tasks/tasks.api';
 import { fetchTodayHabits, logHabitCompletion, undoHabitCompletion } from '@/features/habits/habits.api';
 import { fetchCategories, updateTreasure, deleteTreasure, Category, TreasureLog } from '@/features/treasures/treasures.api';
+import { triggerHaptic } from '@/utils/haptics';
 
 
 // Map a HomeTask to the TreasureLog shape the Wins edit/delete modals expect.
@@ -106,12 +107,6 @@ export default function HomeScreen() {
     const [deleting, setDeleting] = useState(false);
 
     // --- EFFECTS & CALLBACKS ---
-
-    useEffect(() => {
-        if (fontsLoaded) {
-            SplashScreen.hideAsync();
-        }
-    }, [fontsLoaded]);
 
     // Refresh the date at the next midnight so it stays current.
     useEffect(() => {
@@ -222,6 +217,9 @@ export default function HomeScreen() {
         };
     }, []);
 
+    // 2. NOW IT IS SAFE TO DO EARLY RETURNS (All hooks have been registered)
+
+
     // The queue state is kept already ordered (hero first, then the active sort
     // order) so the Other Tasks list updates immediately when a task change is
     // emitted — no re-sort is needed on render.
@@ -304,6 +302,7 @@ export default function HomeScreen() {
 
     // Completing the Hero Task promotes the next task in line.
     const handleHeroComplete = useCallback((task: TaskItemData) => {
+        triggerHaptic.heavy(); // Task completion toggle
         const wasHero = task.isFocus === true;
 
         // 1. Optimistically update the state: remove the hero task and promote the next task.
@@ -335,6 +334,7 @@ export default function HomeScreen() {
     }, [taskQueue, sortCriteria, syncPositions, undoTaskCompletion, completeTask, emitTaskDataChanged]);
 
     const handleToggleTask = useCallback((task: TaskItemData) => {
+        triggerHaptic.heavy(); // Task completion toggle
         const wasHero = task.isFocus === true;
 
         // 1. Optimistically update the state.
@@ -375,6 +375,7 @@ export default function HomeScreen() {
     // The new sorted order of the non-Hero tasks is persisted to `position`,
     // and the sort mode is persisted so Calendar reflects the same mode.
     const handleChangeSort = useCallback((criteria: HomeSortCriteria) => {
+        triggerHaptic.light(); // Filter/sort change
         setSortCriteria(criteria);
         Promise.all([setHomeSortCriteria(criteria), syncPositions(taskQueue, criteria)])
             .then(() => {
@@ -432,6 +433,8 @@ export default function HomeScreen() {
 
     // Open the edit modal for a task (edit mode → tap body → Edit).
     const handleEditTask = useCallback((task: TaskItemData) => {
+        triggerHaptic.light(); // Opening task for editing
+        triggerHaptic.medium(); // Opening modal
         setEditingTask(task as HomeTask);
         setEditModalVisible(true);
     }, []);
@@ -462,6 +465,7 @@ export default function HomeScreen() {
                 // global order consistent, and notify all subscribed screens.
                 return refreshTasks().then(() => {
                     emitTaskDataChanged();
+                    triggerHaptic.success(); // Successful update
                 });
             })
             .catch((err) => {
@@ -492,6 +496,8 @@ export default function HomeScreen() {
 
     // Open the delete confirmation for a task (edit mode → tap body → Delete).
     const handleDeleteTask = useCallback((task: TaskItemData) => {
+        triggerHaptic.warning(); // Delete prompt
+        triggerHaptic.medium(); // Opening modal
         setDeletingTask(task as HomeTask);
         setDeleteModalVisible(true);
     }, []);
@@ -538,6 +544,7 @@ export default function HomeScreen() {
     }, [refreshing, refreshTasks]);
 
     const handleToggleHabit = useCallback((habit: HabitData) => {
+        triggerHaptic.heavy(); // Habit completion toggle
         // 1. Optimistically update the state: remove the habit from the list.
         setHabits(prev => prev.filter(h => h.id !== habit.id));
 

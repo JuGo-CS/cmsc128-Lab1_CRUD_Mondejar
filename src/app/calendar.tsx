@@ -25,6 +25,7 @@ import {
 import { filterTasksByDate, filterTasks, CalendarFilterCriteria } from '@/features/tasks/calendar';
 import { Category, TreasureLog } from '@/features/treasures/treasures.types';
 import { fetchCategories, updateTreasure, deleteTreasure } from '@/features/treasures/treasures.api';
+import { triggerHaptic } from '@/utils/haptics';
 
 
 // Map a HomeTask to the TreasureLog shape the Wins edit/delete modals expect.
@@ -103,11 +104,6 @@ export default function CalendarScreen() {
     // Success toast feedback for complete/edit/delete actions.
     const [toast, setToast] = useState<ToastData | null>(null);
 
-    useEffect(() => {
-        if (fontsLoaded) {
-            SplashScreen.hideAsync();
-        }
-    }, [fontsLoaded]);
 
     // Refetch the global queue from Supabase, apply the current Home sort mode,
     // then apply the date filter. Calendar is a filtered view of the global
@@ -179,7 +175,7 @@ export default function CalendarScreen() {
     // Undo a task completion: restore it to the active queue, re-sync positions,
     // and refresh the UI. Shows a success toast on success, an error toast on failure.
     // If showToast is false, no toast is shown (used for internal rollback).
-    const undoTaskCompletion = (task: HomeTask, wasHero: boolean, showToast: boolean = true) => {
+    const undoTaskCompletion = useCallback((task: HomeTask, wasHero: boolean, showToast: boolean = true) => {
         undoCompleteTask(task.id, wasHero)
             .then(() => refreshTasks())
             .then(() => {
@@ -194,10 +190,11 @@ export default function CalendarScreen() {
                     setToast({ message: 'Could not undo. Please try again.' });
                 }
             });
-    };
+    }, [refreshTasks, emitTaskDataChanged]);
 
     // Mark a task as completed (goes to Treasures via the existing logic).
     const handleCompleteTask = useCallback((task: HomeTask) => {
+        triggerHaptic.heavy(); // Task completion toggle
         const wasHero = task.isFocus === true;
 
         // 1. Optimistically update the state: remove the task from the tasks array.
@@ -225,13 +222,15 @@ export default function CalendarScreen() {
     }, []);
 
     // Open the edit modal for a task.
-    const handleEditTask = (task: HomeTask) => {
+    const handleEditTask = useCallback((task: HomeTask) => {
+        triggerHaptic.light(); // Opening task for editing
+        triggerHaptic.medium(); // Opening modal
         setEditingTask(task);
         setEditModalVisible(true);
-    };
+    }, []);
 
     // Confirm the edited task, then refresh the queue.
-    const handleConfirmEdit = (payload: {
+    const handleConfirmEdit = useCallback((payload: {
         status: 'completed' | 'pending';
         title: string;
         description: string | null;
@@ -268,17 +267,20 @@ export default function CalendarScreen() {
             })
             .finally(() => {
                 setSaving(false);
+                triggerHaptic.success(); // Successful update
             });
-    };
+    }, [refreshTasks, emitTaskDataChanged]);
 
     // Open the delete confirmation for a task.
-    const handleDeleteTask = (task: HomeTask) => {
+    const handleDeleteTask = useCallback((task: HomeTask) => {
+        triggerHaptic.warning(); // Delete prompt
+        triggerHaptic.medium(); // Opening modal
         setDeletingTask(task);
         setDeleteModalVisible(true);
-    };
+    }, []);
 
     // Confirm the permanent deletion, then refresh the queue.
-    const handleConfirmDelete = (task: HomeTask) => {
+    const handleConfirmDelete = useCallback((task: HomeTask) => {
         setDeleting(true);
         deleteTreasure(task.id)
             .then(() => {
@@ -308,7 +310,7 @@ export default function CalendarScreen() {
             .finally(() => {
                 setDeleting(false);
             });
-    };
+    }, [refreshTasks, emitTaskDataChanged]);
 
     // Pull-to-refresh: refetch the global queue, guarding against duplicate runs.
     const handleRefresh = useCallback(() => {
@@ -322,15 +324,16 @@ export default function CalendarScreen() {
 
     // Change the Calendar filter criterion. Resets the filter value, since the
     // previous value may not apply to the new criterion.
-    const handleChangeFilterCriteria = (criteria: CalendarFilterCriteria) => {
+    const handleChangeFilterCriteria = useCallback((criteria: CalendarFilterCriteria) => {
+        triggerHaptic.light(); // Filter/sort change
         setFilterCriteria(criteria);
         setFilterValue(null);
-    };
+    }, []);
 
     // Set the Calendar filter value (e.g. a category name or priority level).
-    const handleChangeFilterValue = (value: string) => {
+    const handleChangeFilterValue = useCallback((value: string) => {
         setFilterValue(value);
-    };
+    }, []);
 
     // Apply the Calendar filter to the date-filtered tasks, preserving the
     // global order. This is a local view filter — it never reorders or modifies
@@ -517,6 +520,7 @@ export default function CalendarScreen() {
                 onSelectDate={(date) => {
                     setSelectedDate(date);
                     setCalendarVisible(false);
+                    triggerHaptic.light(); // Date selection
                 }}
                 selectedDate={selectedDate}
             />
@@ -528,6 +532,7 @@ export default function CalendarScreen() {
                 onSelectDate={(date) => {
                     handleChangeFilterValue(date);
                     setFilterDatePickerVisible(false);
+                    triggerHaptic.light(); // Date selection
                 }}
                 selectedDate={filterValue ?? todayDateString()}
             />

@@ -13,6 +13,7 @@ import {
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Category, TreasureLog } from '@/features/treasures/treasures.types';
 import WinsCalendarModal from '@/components/wins_components/wins-calendar-modal';
+import { triggerHaptic } from '@/utils/haptics';
 
 interface EditTreasureModalProps {
     visible: boolean;
@@ -108,6 +109,15 @@ export default function EditTreasureModal({
     useEffect(() => {
         if (!visible) {
             setConfirming(false);
+        }
+    }, [visible]);
+
+    // Haptic feedback for modal open and close
+    useEffect(() => {
+        if (visible) {
+            triggerHaptic.medium(); // opening
+        } else {
+            triggerHaptic.medium(); // closing
         }
     }, [visible]);
 
@@ -437,19 +447,19 @@ export default function EditTreasureModal({
                             </ScrollView>
                         )}
                     </View>
-                </View>
 
-                {/* Deadline date picker */}
-                <WinsCalendarModal
-                    visible={deadlinePickerVisible}
-                    onClose={() => setDeadlinePickerVisible(false)}
-                    onSelectDate={(date) => {
-                        setDeadline(date);
-                        setDeadlinePickerVisible(false);
-                    }}
-                    selectedDate={deadline || todayDateString()}
-                />
+                    {/* Deadline date picker */}
+                    <WinsCalendarModal
+                        visible={deadlinePickerVisible}
+                        onClose={() => setDeadlinePickerVisible(false)}
+                        onSelectDate={(date) => {
+                            setDeadline(date);
+                            setDeadlinePickerVisible(false);
+                        }}
+                        selectedDate={deadline || todayDateString()}
+                    />
+                </View>
             </KeyboardAvoidingView>
         </Modal>
-    );
+        );
 }
