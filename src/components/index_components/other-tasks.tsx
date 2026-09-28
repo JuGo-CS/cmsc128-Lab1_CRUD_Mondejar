@@ -323,7 +323,7 @@ function DraggableTaskList({
 
   // Whether a drag is currently in progress. Used to avoid clobbering the
   // in-progress drag when the parent refetches after a task change.
-  const [dragging, setDragging] = useState(false);
+  const [dragging] = useState(false);
 
   // Keep the local order in sync when the tasks list changes. The parent
   // refetches from the shared task-change event, so a new task (Add) or a

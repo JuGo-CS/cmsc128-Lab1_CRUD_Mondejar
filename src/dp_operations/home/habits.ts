@@ -1,5 +1,4 @@
 import { supabase } from '../../lib/supabase';
-import HabitCard from '@/components/index_components/habit-card';
 import type { HabitData } from '@/features/habits/habits.types';
 
 /**

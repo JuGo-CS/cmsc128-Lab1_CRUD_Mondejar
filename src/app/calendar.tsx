@@ -7,7 +7,6 @@ import {
     RefreshControl,
 } from 'react-native';
 import { useFonts, Fredoka_400Regular, Fredoka_500Medium, Fredoka_600SemiBold, Fredoka_700Bold } from '@expo-google-fonts/fredoka';
-import * as SplashScreen from 'expo-splash-screen';
 import { useFocusEffect } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { subscribeToTaskChanges, emitTaskDataChanged } from '@/lib/data-events';
@@ -18,7 +17,7 @@ import EditTreasureModal from '@/components/wins_components/edit-treasure-modal'
 import DeleteTreasureModal from '@/components/wins_components/delete-treasure-modal';
 import WinsCalendarModal from '@/components/wins_components/wins-calendar-modal';
 import Toast, { ToastData } from '@/components/ui/toast';
-import { HomeTask, TaskSnapshot, HomeSortCriteria } from '@/features/tasks/tasks.types';
+import { HomeTask, HomeSortCriteria } from '@/features/tasks/tasks.types';
 import {
     fetchPendingTaskQueue,
     sortHomeTasks,
@@ -87,7 +86,7 @@ export default function CalendarScreen() {
     const [taskError, setTaskError] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
     // The global sort mode, owned by Home. Calendar only reflects it.
-    const [sortCriteria, setSortCriteria] = useState<HomeSortCriteria>('manual');
+    const [, setSortCriteria] = useState<HomeSortCriteria>('manual');
     // Calendar's own filter (which tasks are visible). This is a local filter,
     // NOT a global reorder — it never touches the global queue or positions.
     const [filterCriteria, setFilterCriteria] = useState<CalendarFilterCriteria>('manual');

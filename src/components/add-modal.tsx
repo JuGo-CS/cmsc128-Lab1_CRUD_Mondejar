@@ -141,8 +141,7 @@ export default function AddModal({ visible, onClose, onSaved, onTaskSaved, onHab
         onClose();
     };
 
-    const canSaveTask = title.trim().length > 0;
-    const canSaveHabit = habitTitle.trim().length > 0;
+        const canSaveHabit = habitTitle.trim().length > 0;
 
     const handleSaveTask = () => {
         if (saving) return;
