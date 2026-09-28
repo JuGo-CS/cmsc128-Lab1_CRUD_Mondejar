@@ -185,7 +185,6 @@ export default function OtherTasks({
   // Show a limited number of tasks in the stacked preview.
   const PREVIEW_COUNT = 3;
   const visibleTasks = expanded ? tasks : tasks.slice(0, PREVIEW_COUNT);
-  const hasMore = tasks.length > PREVIEW_COUNT;
 
   // Empty state — no other tasks remaining.
   if (tasks.length === 0) {
