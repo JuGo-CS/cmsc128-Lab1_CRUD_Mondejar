@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
     View,
     Text,
@@ -11,8 +11,9 @@ import {
     Keyboard,
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { Category, TreasureLog } from '@/dp_operations/wins/treasures';
+import { Category, TreasureLog } from '@/features/treasures/treasures.types';
 import WinsCalendarModal from '@/components/wins_components/wins-calendar-modal';
+import { triggerHaptic } from '@/utils/haptics';
 
 interface EditTreasureModalProps {
     visible: boolean;
@@ -51,6 +52,17 @@ function formatDeadline(dateStr: string): string {
     });
 }
 
+/** Validate a deadline string in YYYY-MM-DD format. */
+function isValidDeadline(dateStr: string): boolean {
+    if (!dateStr) return true; // empty is allowed (optional)
+    const regex = /^\d{4}-\d{2}-\d{2}$/;
+    if (!regex.test(dateStr)) return false;
+    const [year, month, day] = dateStr.split('-').map(Number);
+    const date = new Date(year, month - 1, day);
+    // Check if the date is valid and not NaN
+    return date instanceof Date && !isNaN(date.getTime());
+}
+
 // A modal to edit a completed task ("Treasure"): status, title, description, and
 // category. Includes a confirmation step before applying any changes.
 export default function EditTreasureModal({
@@ -69,6 +81,12 @@ export default function EditTreasureModal({
     const [deadlinePickerVisible, setDeadlinePickerVisible] = useState(false);
     const [confirming, setConfirming] = useState(false);
 
+    // Validation errors
+    const [titleError, setTitleError] = useState<string | null>(null);
+    const [descriptionError, setDescriptionError] = useState<string | null>(null);
+    const [deadlineError, setDeadlineError] = useState<string | null>(null);
+    const [error, setError] = useState<string | null>(null);
+
     // Reset the form whenever a new task is opened, loading the task's actual
     // database values (status, deadline, etc.) instead of incorrect defaults.
     useEffect(() => {
@@ -79,6 +97,11 @@ export default function EditTreasureModal({
             setCatId(log.catId);
             setDeadline(log.deadline);
             setConfirming(false);
+            // Reset errors
+            setTitleError(null);
+            setDescriptionError(null);
+            setDeadlineError(null);
+            setError(null);
         }
     }, [log]);
 
@@ -89,28 +112,85 @@ export default function EditTreasureModal({
         }
     }, [visible]);
 
+    // Haptic feedback for modal open and close
+    useEffect(() => {
+        if (visible) {
+            triggerHaptic.medium(); // opening
+        } else {
+            triggerHaptic.medium(); // closing
+        }
+    }, [visible]);
+
     const handleClose = () => {
         Keyboard.dismiss();
         setConfirming(false);
         onClose();
     };
 
-    // Move to the confirmation step. Nothing is saved yet.
+    // Validate the form and move to the confirmation step if valid.
     const handleSavePress = () => {
-        if (!title.trim()) return;
+        // Reset errors
+        setTitleError(null);
+        setDescriptionError(null);
+        setDeadlineError(null);
+        setError(null);
+
+        // Validate title
+        const trimmedTitle = title.trim();
+        if (trimmedTitle.length === 0) {
+            setTitleError('Title is required.');
+            return;
+        }
+        if (trimmedTitle.length > 100) {
+            setTitleError('Title must be 100 characters or less.');
+            return;
+        }
+
+        // Validate description length (if provided)
+        if (description.trim().length > 500) {
+            setDescriptionError('Description must be 500 characters or less.');
+            return;
+        }
+
+        // Validate deadline format
+        if (!isValidDeadline(deadline ?? '')) {
+            setDeadlineError('Please enter a valid date (YYYY-MM-DD).');
+            return;
+        }
+
+        // If all valid, proceed to confirmation.
         Keyboard.dismiss();
         setConfirming(true);
     };
 
     // Apply the edit — this is the only place that updates the database.
     const handleConfirm = () => {
-        if (!title.trim()) return;
+        // Double-check validation (should already be valid from handleSavePress)
+        const trimmedTitle = title.trim();
+        if (trimmedTitle.length === 0) {
+            setTitleError('Title is required.');
+            return;
+        }
+        if (trimmedTitle.length > 100) {
+            setTitleError('Title must be 100 characters or less.');
+            return;
+        }
+        if (description.trim().length > 500) {
+            setDescriptionError('Description must be 500 characters or less.');
+            return;
+        }
+        if (!isValidDeadline(deadline ?? '')) {
+            setDeadlineError('Please enter a valid date (YYYY-MM-DD).');
+            return;
+        }
+
+        setError(null);
         onConfirm({
             status,
-            title: title.trim(),
+            title: trimmedTitle,
             description: description.trim() ? description.trim() : null,
             cat_id: catId,
-            deadline,
+            deadline: deadline ?? null,
         });
     };
 
@@ -247,11 +327,19 @@ export default function EditTreasureModal({
                                 </Text>
                                 <TextInput
                                     value={title}
-                                    onChangeText={setTitle}
+                                    onChangeText={(text) => {
+                                        setTitle(text);
+                                        if (titleError) setTitleError(null);
+                                    }}
                                     placeholder="Task title"
                                     placeholderTextColor="#7D6E6B"
                                     className="bg-cardBg rounded-xl px-4 py-3 text-base font-fredoka text-deepBrown mb-4"
                                 />
+                                {titleError && (
+                                    <Text className="text-sm font-fredoka text-[#C0392B] mb-2">
+                                        {titleError}
+                                    </Text>
+                                )}
 
                                 {/* Description */}
                                 <Text className="text-sm font-fredoka-semibold text-mutedBrown mb-2">
@@ -265,6 +353,11 @@ export default function EditTreasureModal({
                                     multiline
                                     className="bg-cardBg rounded-xl px-4 py-3 text-base font-fredoka text-deepBrown mb-4 min-h-[80px]"
                                 />
+                                {descriptionError && (
+                                    <Text className="text-sm font-fredoka text-[#C0392B] mb-2">
+                                        {descriptionError}
+                                    </Text>
+                                )}
 
                                 {/* Category */}
                                 <Text className="text-sm font-fredoka-semibold text-mutedBrown mb-2">
@@ -322,6 +415,11 @@ export default function EditTreasureModal({
                                         <Ionicons name="chevron-forward" size={20} color="#7D6E6B" className="ml-auto" />
                                     )}
                                 </TouchableOpacity>
+                                {deadlineError && (
+                                    <Text className="text-sm font-fredoka text-[#C0392B] mb-2">
+                                        {deadlineError}
+                                    </Text>
+                                )}
 
                                 {/* Actions */}
                                 <View className="flex-row">
@@ -338,7 +436,7 @@ export default function EditTreasureModal({
                                     <TouchableOpacity
                                         onPress={handleSavePress}
                                         activeOpacity={0.85}
-                                        disabled={!title.trim()}
+                                        disabled={!!titleError || !!descriptionError || !!deadlineError || !!error}
                                         className="flex-1 py-3 rounded-xl items-center bg-focusHero"
                                     >
                                         <Text className="font-fredoka-bold text-white">
@@ -349,19 +447,19 @@ export default function EditTreasureModal({
                             </ScrollView>
                         )}
                     </View>
+
+                    {/* Deadline date picker */}
+                    <WinsCalendarModal
+                        visible={deadlinePickerVisible}
+                        onClose={() => setDeadlinePickerVisible(false)}
+                        onSelectDate={(date) => {
+                            setDeadline(date);
+                            setDeadlinePickerVisible(false);
+                        }}
+                        selectedDate={deadline || todayDateString()}
+                    />
                 </View>
             </KeyboardAvoidingView>
-
-            {/* Deadline date picker */}
-            <WinsCalendarModal
-                visible={deadlinePickerVisible}
-                onClose={() => setDeadlinePickerVisible(false)}
-                onSelectDate={(date) => {
-                    setDeadline(date);
-                    setDeadlinePickerVisible(false);
-                }}
-                selectedDate={deadline || todayDateString()}
-            />
         </Modal>
     );
 }

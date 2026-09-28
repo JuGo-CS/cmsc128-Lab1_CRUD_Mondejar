@@ -12,12 +12,6 @@ export default function ProfileScreen() {
         Fredoka_700Bold,
     });
 
-    useEffect(() => {
-        if (fontsLoaded) {
-            SplashScreen.hideAsync();
-        }
-    }, [fontsLoaded]);
-
     if (!fontsLoaded) {
         return null;
     }

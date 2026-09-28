@@ -1,4 +1,4 @@
-import React, { memo } from 'react';
+import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import TaskActions from '@/components/ui/task-actions';
@@ -31,10 +31,10 @@ interface TaskItemProps {
     muted?: boolean;
     /** When true, the item is in global edit mode (drag + hero selection). */
     editMode?: boolean;
-    /** Whether this task is the Hero Task (shown in edit mode). */
-    isHero?: boolean;
     /** Called when the user taps "Make Hero" in edit mode. */
     onMakeHero?: (task: TaskItemData) => void;
+    /** Whether this task is the Hero Task (shown in edit mode). */
+    isHero?: boolean;
     /** When true, the Edit/Delete actions are revealed (edit mode). */
     showActions?: boolean;
     /** Toggle the Edit/Delete actions (edit mode). */
@@ -47,7 +47,7 @@ interface TaskItemProps {
 
 // A single task row with an icon on the left and a checkbox on the right.
 // Titles are truncated with an ellipsis when they are too long.
-function TaskItem({
+export default function TaskItem({
     task,
     onToggle,
     compact,
@@ -162,32 +162,3 @@ function TaskItem({
         </View>
     );
 }
-
-function areEqual(prevProps: TaskItemProps, nextProps: TaskItemProps): boolean {
-    return (
-        prevProps.compact === nextProps.compact &&
-        prevProps.muted === nextProps.muted &&
-        prevProps.editMode === nextProps.editMode &&
-        prevProps.isHero === nextProps.isHero &&
-        prevProps.showActions === nextProps.showActions &&
-        // Compare task
-        prevProps.task.id === nextProps.task.id &&
-        prevProps.task.title === nextProps.task.title &&
-        prevProps.task.iconName === nextProps.task.iconName &&
-        prevProps.task.completed === nextProps.task.completed &&
-        prevProps.task.priority === nextProps.task.priority &&
-        prevProps.task.deadline === nextProps.task.deadline &&
-        prevProps.task.categoryName === nextProps.task.categoryName &&
-        prevProps.task.createdAt === nextProps.task.createdAt &&
-        prevProps.task.position === nextProps.task.position &&
-        prevProps.task.isFocus === nextProps.task.isFocus &&
-        // Compare function props (by reference)
-        prevProps.onToggle === nextProps.onToggle &&
-        prevProps.onMakeHero === nextProps.onMakeHero &&
-        prevProps.onToggleActions === nextProps.onToggleActions &&
-        prevProps.onEdit === nextProps.onEdit &&
-        prevProps.onDelete === nextProps.onDelete
-    );
-}
-
-export default memo(TaskItem, areEqual);

@@ -1,4 +1,4 @@
-import React, { memo } from 'react';
+import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
@@ -15,7 +15,7 @@ interface HeroCardProps {
     empty?: boolean;
 }
 
-function HeroCard({ task, onComplete, empty }: HeroCardProps) {
+export default function HeroCard({ task, onComplete, empty }: HeroCardProps) {
     // Relaxing empty state — all tasks done for today.
     if (empty || !task) {
         return (
@@ -70,19 +70,3 @@ function HeroCard({ task, onComplete, empty }: HeroCardProps) {
         </View>
     );
 }
-
-function areEqual(prevProps: HeroCardProps, nextProps: HeroCardProps): boolean {
-    if (prevProps.empty !== nextProps.empty) return false;
-    if (prevProps.task && nextProps.task) {
-        return (
-            prevProps.task.id === nextProps.task.id &&
-            prevProps.task.title === nextProps.task.title &&
-            prevProps.task.iconName === nextProps.task.iconName &&
-            prevProps.onComplete === nextProps.onComplete
-        );
-    }
-    // If one is null and the other is not, or both null
-    return prevProps.task === nextProps.task && prevProps.onComplete === nextProps.onComplete;
-}
-
-export default memo(HeroCard, areEqual);

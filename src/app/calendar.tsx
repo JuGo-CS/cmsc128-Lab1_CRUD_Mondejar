@@ -1,5 +1,11 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
+import { useEffect, useState, useCallback } from 'react';
+import {
+    View,
+    Text,
+    ScrollView,
+    TouchableOpacity,
+    RefreshControl,
+} from 'react-native';
 import { useFonts, Fredoka_400Regular, Fredoka_500Medium, Fredoka_600SemiBold, Fredoka_700Bold } from '@expo-google-fonts/fredoka';
 import * as SplashScreen from 'expo-splash-screen';
 import { useFocusEffect } from 'expo-router';
@@ -12,10 +18,21 @@ import EditTreasureModal from '@/components/wins_components/edit-treasure-modal'
 import DeleteTreasureModal from '@/components/wins_components/delete-treasure-modal';
 import WinsCalendarModal from '@/components/wins_components/wins-calendar-modal';
 import Toast, { ToastData } from '@/components/ui/toast';
-import { fetchPendingTaskQueue, sortHomeTasks, restoreTask, restoreTaskSnapshot, homeTaskToSnapshot, undoCompleteTask, TaskSnapshot, HomeTask, HomeSortCriteria } from '@/dp_operations/home/tasks';
-import { filterTasksByDate, filterTasks, CalendarFilterCriteria } from '@/dp_operations/calendar/tasks';
-import { completeTask } from '@/dp_operations/home/tasks';
-import { fetchCategories, updateTreasure, deleteTreasure, Category, TreasureLog } from '@/dp_operations/wins/treasures';
+import { HomeTask, TaskSnapshot, HomeSortCriteria } from '@/features/tasks/tasks.types';
+import {
+    fetchPendingTaskQueue,
+    sortHomeTasks,
+    restoreTask,
+    restoreTaskSnapshot,
+    homeTaskToSnapshot,
+    undoCompleteTask,
+    completeTask,
+} from '@/features/tasks/tasks.api';
+import { filterTasksByDate, filterTasks, CalendarFilterCriteria } from '@/features/tasks/calendar';
+import { Category, TreasureLog } from '@/features/treasures/treasures.types';
+import { fetchCategories, updateTreasure, deleteTreasure } from '@/features/treasures/treasures.api';
+import { triggerHaptic } from '@/utils/haptics';
+
 
 // Map a HomeTask to the TreasureLog shape the Wins edit/delete modals expect.
 // The modals only read id/title/description/catId; completedDate/Time are unused
@@ -37,16 +54,16 @@ function toTreasureLog(task: HomeTask): TreasureLog {
     };
 }
 
-/** Today's date as `YYYY-MM-DD` in local time (default selected date). */
+// Today's date as `YYYY-MM-DD` in local time (default selected date).
 function todayDateString(): string {
     const now = new Date();
     const year = now.getFullYear();
     const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
+    let day = String(now.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
 }
 
-/** Format a `YYYY-MM-DD` date into "September 12" style label. */
+// Format a `YYYY-MM-DD` date into "September 12" style label.
 function formatDateLabel(dateStr: string): string {
     const [year, month, day] = dateStr.split('-').map(Number);
     const date = new Date(year, month - 1, day);
@@ -67,6 +84,7 @@ export default function CalendarScreen() {
     // The global task queue (Home owns ordering). Calendar is a filtered view.
     const [tasks, setTasks] = useState<HomeTask[]>([]);
     const [loading, setLoading] = useState(true);
+    const [taskError, setTaskError] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
     // The global sort mode, owned by Home. Calendar only reflects it.
     const [sortCriteria, setSortCriteria] = useState<HomeSortCriteria>('manual');
@@ -92,17 +110,13 @@ export default function CalendarScreen() {
     // Success toast feedback for complete/edit/delete actions.
     const [toast, setToast] = useState<ToastData | null>(null);
 
-    useEffect(() => {
-        if (fontsLoaded) {
-            SplashScreen.hideAsync();
-        }
-    }, [fontsLoaded]);
 
     // Refetch the global queue from Supabase, apply the current Home sort mode,
     // then apply the date filter. Calendar is a filtered view of the global
     // queue — it never reorders, re-sorts, or modifies positions. The task
     // filter is applied separately in the render so changing it doesn't refetch.
     const refreshTasks = useCallback(() => {
+        setTaskError(false); // reset error at start of fetch
         return Promise.all([fetchPendingTaskQueue(), getHomeSortCriteria()])
             .then(([queue, sortMode]) => {
                 setSortCriteria(sortMode);
@@ -111,6 +125,7 @@ export default function CalendarScreen() {
             })
             .catch((err) => {
                 console.error('Failed to load tasks for date:', err);
+                setTaskError(true);
             })
             .finally(() => {
                 setLoading(false);
@@ -121,8 +136,22 @@ export default function CalendarScreen() {
     // focus so newly created tasks appear after the Add modal closes.
     useFocusEffect(
         useCallback(() => {
+            let active = true;
             setLoading(true);
-            refreshTasks();
+            setTaskError(false); // reset error at start of fetch
+            refreshTasks()
+                .catch((err) => {
+                    if (active) {
+                        console.error('Failed to load tasks for date:', err);
+                        setTaskError(true);
+                    }
+                })
+                .finally(() => {
+                    if (active) setLoading(false);
+                });
+            return () => {
+                active = false;
+            };
         }, [refreshTasks])
     );
 
@@ -139,58 +168,75 @@ export default function CalendarScreen() {
         let isMounted = true;
         fetchCategories()
             .then((data) => {
-                if (isMounted) {
-                    setCategories(data);
-                }
+                if (isMounted) setCategories(data);
             })
             .catch((err) => {
-                console.error('Failed to load categories:', err);
+                if (isMounted) console.error('Failed to load categories:', err);
             });
         return () => {
             isMounted = false;
         };
     }, []);
 
+    // Undo a task completion: restore it to the active queue, re-sync positions,
+    // and refresh the UI. Shows a success toast on success, an error toast on failure.
+    // If showToast is false, no toast is shown (used for internal rollback).
+    const undoTaskCompletion = useCallback((task: HomeTask, wasHero: boolean, showToast: boolean = true) => {
+        undoCompleteTask(task.id, wasHero)
+            .then(() => refreshTasks())
+            .then(() => {
+                if (showToast) {
+                    setToast({ message: 'Task restored.' });
+                }
+                emitTaskDataChanged();
+            })
+            .catch((err) => {
+                console.error('Failed to undo task completion:', err);
+                if (showToast) {
+                    setToast({ message: 'Could not undo. Please try again.' });
+                }
+            });
+    }, [refreshTasks, emitTaskDataChanged]);
+
     // Mark a task as completed (goes to Treasures via the existing logic).
-    const handleCompleteTask = (task: HomeTask) => {
-        // Capture whether the task was the Hero so Undo can restore it.
+    const handleCompleteTask = useCallback((task: HomeTask) => {
+        triggerHaptic.heavy(); // Task completion toggle
         const wasHero = task.isFocus === true;
+
+        // 1. Optimistically update the state: remove the task from the tasks array.
+        setTasks(prev => prev.filter(t => t.id !== task.id));
+
+        // 2. Show a toast with an undo option.
+        setToast({
+            message: 'Task completed!',
+            undoLabel: 'Undo',
+            onUndo: () => undoTaskCompletion(task, wasHero, true), // User-initiated undo shows a toast.
+        });
+
+        // 3. Persist the completion to the database.
         completeTask(task.id)
             .then(() => {
-                setTasks((prev) => prev.filter((t) => t.id !== task.id));
-                setToast({
-                    message: 'Task completed!',
-                    undoLabel: 'Undo',
-                    onUndo: () => {
-                        // Reuse the centralized completion undo: restore the task
-                        // to its previous state, then refetch the filtered view.
-                        undoCompleteTask(task.id, wasHero)
-                            .then(() => refreshTasks())
-                            .then(() => {
-                                setToast({ message: 'Task restored.' });
-                                emitTaskDataChanged();
-                            })
-                            .catch((err) => {
-                                console.error('Failed to undo task completion:', err);
-                                setToast({ message: 'Could not undo. Please try again.' });
-                            });
-                    },
-                });
+                // On success, do nothing to the toast (the undo toast remains until user action).
                 emitTaskDataChanged();
             })
             .catch((err) => {
                 console.error('Failed to complete task:', err);
+                // Rollback the optimistic update.
+                undoTaskCompletion(task, wasHero, false); // Internal rollback: no toast from undo function.
+                setToast({ message: 'Failed to complete task. Please try again.', undoLabel: undefined });
             });
-    };
+    }, []);
 
     // Open the edit modal for a task.
-    const handleEditTask = (task: HomeTask) => {
+    const handleEditTask = useCallback((task: HomeTask) => {
+        triggerHaptic.light(); // Opening task for editing
+        triggerHaptic.medium(); // Opening modal
         setEditingTask(task);
         setEditModalVisible(true);
-    };
+    }, []);
 
     // Confirm the edited task, then refresh the queue.
-    const handleConfirmEdit = (payload: {
+    const handleConfirmEdit = useCallback((payload: {
         status: 'completed' | 'pending';
         title: string;
         description: string | null;
@@ -221,26 +267,26 @@ export default function CalendarScreen() {
                             });
                     },
                 });
-                return refreshTasks().then(() => {
-                    emitTaskDataChanged();
-                });
             })
             .catch((err) => {
                 console.error('Failed to update task:', err);
             })
             .finally(() => {
                 setSaving(false);
+                triggerHaptic.success(); // Successful update
             });
-    };
+    }, [refreshTasks, emitTaskDataChanged]);
 
     // Open the delete confirmation for a task.
-    const handleDeleteTask = (task: HomeTask) => {
+    const handleDeleteTask = useCallback((task: HomeTask) => {
+        triggerHaptic.warning(); // Delete prompt
+        triggerHaptic.medium(); // Opening modal
         setDeletingTask(task);
         setDeleteModalVisible(true);
-    };
+    }, []);
 
     // Confirm the permanent deletion, then refresh the queue.
-    const handleConfirmDelete = (task: HomeTask) => {
+    const handleConfirmDelete = useCallback((task: HomeTask) => {
         setDeleting(true);
         deleteTreasure(task.id)
             .then(() => {
@@ -263,7 +309,6 @@ export default function CalendarScreen() {
                             });
                     },
                 });
-                emitTaskDataChanged();
             })
             .catch((err) => {
                 console.error('Failed to delete task:', err);
@@ -271,16 +316,13 @@ export default function CalendarScreen() {
             .finally(() => {
                 setDeleting(false);
             });
-    };
-
-    if (!fontsLoaded) {
-        return null;
-    }
+    }, [refreshTasks, emitTaskDataChanged]);
 
     // Pull-to-refresh: refetch the global queue, guarding against duplicate runs.
     const handleRefresh = useCallback(() => {
         if (refreshing) return;
         setRefreshing(true);
+        setTaskError(false); // reset error on refresh
         refreshTasks().finally(() => {
             setRefreshing(false);
         });
@@ -288,20 +330,25 @@ export default function CalendarScreen() {
 
     // Change the Calendar filter criterion. Resets the filter value, since the
     // previous value may not apply to the new criterion.
-    const handleChangeFilterCriteria = (criteria: CalendarFilterCriteria) => {
+    const handleChangeFilterCriteria = useCallback((criteria: CalendarFilterCriteria) => {
+        triggerHaptic.light(); // Filter/sort change
         setFilterCriteria(criteria);
         setFilterValue(null);
-    };
+    }, []);
 
     // Set the Calendar filter value (e.g. a category name or priority level).
-    const handleChangeFilterValue = (value: string) => {
+    const handleChangeFilterValue = useCallback((value: string) => {
         setFilterValue(value);
-    };
+    }, []);
 
     // Apply the Calendar filter to the date-filtered tasks, preserving the
     // global order. This is a local view filter — it never reorders or modifies
     // the global queue.
     const filteredTasks = filterTasks(tasks, filterCriteria, filterValue);
+
+    if (!fontsLoaded) {
+        return null;
+    }
 
     return (
         <View className="flex-1 bg-cozyBg pt-14 px-5">
@@ -372,9 +419,7 @@ export default function CalendarScreen() {
                                             key={cat.cat_id}
                                             onPress={() => handleChangeFilterValue(cat.cat_name)}
                                             activeOpacity={0.7}
-                                            className={`flex-row items-center px-3 py-2 rounded-xl mr-2 mb-2 ${
-                                                selected ? 'bg-focusHero' : 'bg-cardBg'
-                                            }`}
+                                            className={`flex-row items-center px-3 py-2 rounded-xl mr-2 mb-2 ${selected ? 'bg-focusHero' : 'bg-cardBg'}`}
                                         >
                                             <Text className="mr-1">{cat.emoji}</Text>
                                             <Text className={`font-fredoka-semibold ${selected ? 'text-white' : 'text-deepBrown'}`}>
@@ -394,9 +439,7 @@ export default function CalendarScreen() {
                                             key={p}
                                             onPress={() => handleChangeFilterValue(p)}
                                             activeOpacity={0.7}
-                                            className={`flex-1 py-2.5 rounded-xl items-center mr-2 last:mr-0 ${
-                                                selected ? 'bg-focusHero' : 'bg-cardBg'
-                                            }`}
+                                            className={`flex-1 py-2.5 rounded-xl items-center mr-2 last:mr-0 ${selected ? 'bg-focusHero' : 'bg-cardBg'}`}
                                         >
                                             <Text className={`font-fredoka-semibold capitalize ${selected ? 'text-white' : 'text-deepBrown'}`}>
                                                 {p}
@@ -414,6 +457,19 @@ export default function CalendarScreen() {
                     <Text className="text-base font-fredoka text-mutedBrown">
                         Loading your queue...
                     </Text>
+                ) : taskError ? (
+                    <View className="flex-1 items-center p-6">
+                        <Text className="text-lg font-fredoka-medium text-deepBrown">
+                            Failed to load tasks. Please try again.
+                        </Text>
+                        <TouchableOpacity
+                            onPress={handleRefresh}
+                            activeOpacity={0.7}
+                            className="mt-4 bg-focusHero text-white px-6 py-3 rounded-xl font-fredoka-semibold"
+                        >
+                            Retry
+                        </TouchableOpacity>
+                    </View>
                 ) : filteredTasks.length === 0 ? (
                     <Text className="text-base font-fredoka text-mutedBrown">
                         Nothing in your queue for this day. Enjoy the calm!
@@ -455,7 +511,11 @@ export default function CalendarScreen() {
                     setDeleteModalVisible(false);
                     setDeletingTask(null);
                 }}
-                onConfirmDelete={(log) => handleConfirmDelete(deletingTask!)}
+                onConfirmDelete={() => {
+                    if (deletingTask) {
+                        handleConfirmDelete(deletingTask);
+                    }
+                }}
                 deleting={deleting}
             />
 
@@ -466,6 +526,7 @@ export default function CalendarScreen() {
                 onSelectDate={(date) => {
                     setSelectedDate(date);
                     setCalendarVisible(false);
+                    triggerHaptic.light(); // Date selection
                 }}
                 selectedDate={selectedDate}
             />
@@ -477,6 +538,7 @@ export default function CalendarScreen() {
                 onSelectDate={(date) => {
                     handleChangeFilterValue(date);
                     setFilterDatePickerVisible(false);
+                    triggerHaptic.light(); // Date selection
                 }}
                 selectedDate={filterValue ?? todayDateString()}
             />

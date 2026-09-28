@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { TreasureGroup, TreasureLog } from '@/dp_operations/wins/treasures';
+import { TreasureGroup, TreasureLog } from '@/features/treasures/treasures.types';
 import TreasureLogCard from './treasure-log-card';
 
 interface TreasureDateSectionProps {

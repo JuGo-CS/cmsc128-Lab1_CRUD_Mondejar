@@ -1,7 +1,8 @@
 import React from 'react';
 import { View, Text, FlatList } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import HabitCard, { HabitData } from './habit-card';
+import HabitCard from './habit-card';
+import type { HabitData } from '@/features/habits/habits.types';
 
 interface DailyHabitsProps {
     habits: HabitData[];

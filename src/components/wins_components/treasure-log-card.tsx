@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { memo, useState } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import TaskActions from '@/components/ui/task-actions';
-import { TreasureLog } from '@/dp_operations/wins/treasures';
+import { TreasureLog } from '@/features/treasures/treasures.types';
 
 /** Format a `HH:MM:SS` time into a friendly label like "2:30 PM". */
 function formatTimeLabel(timeStr: string): string {
@@ -24,7 +24,7 @@ interface TreasureLogCardProps {
 
 // A single completed task log card ("Treasure") displayed under a date group.
 // Tapping the card reveals Edit and Delete actions.
-export default function TreasureLogCard({ log, onEdit, onDelete }: TreasureLogCardProps) {
+function TreasureLogCard({ log, onEdit, onDelete }: TreasureLogCardProps) {
     const [showActions, setShowActions] = useState(false);
 
     return (
@@ -36,7 +36,7 @@ export default function TreasureLogCard({ log, onEdit, onDelete }: TreasureLogCa
             >
                 {/* Task icon */}
                 <View className="bg-taskStack/40 rounded-lg p-2 mr-3">
-                    <Ionicons name={log.iconName} size={20} color="#7D6E6B" />
+                    <Ionicons name={log.iconName as keyof typeof Ionicons.glyphMap} size={20} color="#7D6E6B" />
                 </View>
 
                 {/* Title + completion time */}
@@ -64,3 +64,16 @@ export default function TreasureLogCard({ log, onEdit, onDelete }: TreasureLogCa
         </View>
     );
 }
+
+function areEqual(prevProps: TreasureLogCardProps, nextProps: TreasureLogCardProps): boolean {
+    return (
+        prevProps.log.id === nextProps.log.id &&
+        prevProps.log.title === nextProps.log.title &&
+        prevProps.log.iconName === nextProps.log.iconName &&
+        prevProps.log.completedTime === nextProps.log.completedTime &&
+        prevProps.onEdit === nextProps.onEdit &&
+        prevProps.onDelete === nextProps.onDelete
+    );
+}
+
+export default memo(TreasureLogCard, areEqual);

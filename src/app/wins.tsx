@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
 import { useFonts, Fredoka_400Regular, Fredoka_500Medium, Fredoka_600SemiBold, Fredoka_700Bold } from '@expo-google-fonts/fredoka';
 import * as SplashScreen from 'expo-splash-screen';
@@ -11,8 +11,18 @@ import WinsCalendarModal from '@/components/wins_components/wins-calendar-modal'
 import EditTreasureModal from '@/components/wins_components/edit-treasure-modal';
 import DeleteTreasureModal from '@/components/wins_components/delete-treasure-modal';
 import Toast, { ToastData } from '@/components/ui/toast';
-import { fetchTreasureGroups, TreasureGroup, TreasureLog, deleteTreasure, fetchCategories, updateTreasure, restoreTreasure, Category } from '@/dp_operations/wins/treasures';
-import { restoreTaskSnapshot, TaskSnapshot } from '@/dp_operations/home/tasks';
+import { TreasureGroup, TreasureLog, Category } from '@/features/treasures/treasures.types';
+import {
+    fetchTreasureGroups,
+    deleteTreasure,
+    fetchCategories,
+    updateTreasure,
+    restoreTreasure,
+} from '@/features/treasures/treasures.api';
+import { TaskSnapshot } from '@/features/tasks/tasks.types';
+import { restoreTaskSnapshot } from '@/features/tasks/tasks.api';
+import { triggerHaptic } from '@/utils/haptics';
+
 
 // Placeholder treasure groups used when the database fetch hasn't loaded yet.
 // Replace with real data once the backend is fully wired.
@@ -21,13 +31,13 @@ const PLACEHOLDER_GROUPS: TreasureGroup[] = [
         date: '2026-09-09',
         label: 'September 9, 2026',
         logs: [
-            { 
-                id: 't-1', 
-                title: 'Finish wireframes for Unti-Unti', 
-                description: null, 
-                catId: null, 
-                iconName: 'school', 
-                completedDate: '2026-09-09', 
+            {
+                id: 't-1',
+                title: 'Finish wireframes for Unti-Unti',
+                description: null,
+                catId: null,
+                iconName: 'school',
+                completedDate: '2026-09-09',
                 completedTime: '14:30:00',
                 status: 'completed',
                 deadline: null,
@@ -35,13 +45,13 @@ const PLACEHOLDER_GROUPS: TreasureGroup[] = [
                 position: 0,
                 createdAt: '2026-09-01T00:00:00.000Z',
             },
-            { 
-                id: 't-2', 
-                title: 'Finish wireframes for Unti-Unti', 
-                description: null, 
-                catId: null, 
-                iconName: 'school', 
-                completedDate: '2026-09-09', 
+            {
+                id: 't-2',
+                title: 'Finish wireframes for Unti-Unti',
+                description: null,
+                catId: null,
+                iconName: 'school',
+                completedDate: '2026-09-09',
                 completedTime: '14:30:00',
                 status: 'completed',
                 deadline: null,
@@ -49,13 +59,13 @@ const PLACEHOLDER_GROUPS: TreasureGroup[] = [
                 position: 1,
                 createdAt: '2026-09-01T00:00:00.000Z',
             },
-            { 
-                id: 't-3', 
-                title: 'Finish wireframes for Unti-Unti', 
-                description: null, 
-                catId: null, 
-                iconName: 'school', 
-                completedDate: '2026-09-09', 
+            {
+                id: 't-3',
+                title: 'Finish wireframes for Unti-Unti',
+                description: null,
+                catId: null,
+                iconName: 'school',
+                completedDate: '2026-09-09',
                 completedTime: '14:30:00',
                 status: 'completed',
                 deadline: null,
@@ -69,13 +79,13 @@ const PLACEHOLDER_GROUPS: TreasureGroup[] = [
         date: '2026-09-08',
         label: 'September 8, 2026',
         logs: [
-            { 
-                id: 't-4', 
-                title: 'Finish wireframes for Unti-Unti', 
-                description: null, 
-                catId: null, 
-                iconName: 'school', 
-                completedDate: '2026-09-08', 
+            {
+                id: 't-4',
+                title: 'Finish wireframes for Unti-Unti',
+                description: null,
+                catId: null,
+                iconName: 'school',
+                completedDate: '2026-09-08',
                 completedTime: '14:30:00',
                 status: 'completed',
                 deadline: null,
@@ -83,13 +93,13 @@ const PLACEHOLDER_GROUPS: TreasureGroup[] = [
                 position: 0,
                 createdAt: '2026-09-01T00:00:00.000Z',
             },
-            { 
-                id: 't-5', 
-                title: 'Finish wireframes for Unti-Unti', 
-                description: null, 
-                catId: null, 
-                iconName: 'school', 
-                completedDate: '2026-09-08', 
+            {
+                id: 't-5',
+                title: 'Finish wireframes for Unti-Unti',
+                description: null,
+                catId: null,
+                iconName: 'school',
+                completedDate: '2026-09-08',
                 completedTime: '14:30:00',
                 status: 'completed',
                 deadline: null,
@@ -106,7 +116,7 @@ function todayDateString(): string {
     const now = new Date();
     const year = now.getFullYear();
     const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
+    let day = String(now.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
 }
 
@@ -143,12 +153,6 @@ export default function WinsScreen() {
     const scrollRef = useRef<ScrollView>(null);
     const dateOffsets = useRef<Record<string, number>>({});
 
-    useEffect(() => {
-        if (fontsLoaded) {
-            SplashScreen.hideAsync();
-        }
-    }, [fontsLoaded]);
-
     // Refetch the completed task logs (Treasures) + categories from Supabase.
     // Used on focus, on pull-to-refresh, and when task data changes elsewhere.
     const refresh = useCallback(() => {
@@ -171,7 +175,20 @@ export default function WinsScreen() {
     // Refetch whenever the screen gains focus so newly completed tasks appear.
     useFocusEffect(
         useCallback(() => {
-            refresh();
+            let active = true;
+            setLoading(true);
+            refresh()
+                .catch((err) => {
+                    if (active) {
+                        console.error('Failed to load treasures:', err);
+                    }
+                })
+                .finally(() => {
+                    if (active) setLoading(false);
+                });
+            return () => {
+                active = false;
+            };
         }, [refresh])
     );
 
@@ -184,13 +201,15 @@ export default function WinsScreen() {
     }, [refresh]);
 
     // Handle editing a treasure's title.
-    const handleEditLog = (log: TreasureLog) => {
+    const handleEditLog = useCallback((log: TreasureLog) => {
+        triggerHaptic.light(); // Opening treasure for editing
+        triggerHaptic.medium(); // Opening modal
         setEditingLog(log);
         setEditModalVisible(true);
-    };
+    }, []);
 
     // Handle confirming the edited treasure, then refresh the logbook.
-    const handleConfirmEdit = (payload: {
+    const handleConfirmEdit = useCallback((payload: {
         status: 'completed' | 'pending';
         title: string;
         description: string | null;
@@ -235,28 +254,26 @@ export default function WinsScreen() {
                             });
                     },
                 });
-                // Refresh the logbook so changes are immediately reflected.
-                return fetchTreasureGroups().then((data) => {
-                    setGroups(data);
-                    emitTaskDataChanged();
-                });
             })
             .catch((err) => {
                 console.error('Failed to update treasure:', err);
             })
             .finally(() => {
                 setSaving(false);
+                triggerHaptic.success(); // Successful update
             });
-    };
+    }, [editingLog, setSaving, setEditModalVisible, setEditingLog, setToast, restoreTaskSnapshot, fetchTreasureGroups, emitTaskDataChanged]);
 
     // Handle tapping Delete — open the confirmation dialog (does not delete yet).
-    const handleDeleteLog = (log: TreasureLog) => {
+    const handleDeleteLog = useCallback((log: TreasureLog) => {
+        triggerHaptic.warning(); // Delete prompt
+        triggerHaptic.medium(); // Opening modal
         setDeletingLog(log);
         setDeleteModalVisible(true);
-    };
+    }, []);
 
     // Handle confirming the permanent deletion. Only deletes after confirmation.
-    const handleConfirmDelete = (log: TreasureLog) => {
+    const handleConfirmDelete = useCallback((log: TreasureLog) => {
         setDeleting(true);
         deleteTreasure(log.id)
             .then(() => {
@@ -288,7 +305,6 @@ export default function WinsScreen() {
                             });
                     },
                 });
-                emitTaskDataChanged();
             })
             .catch((err) => {
                 // Keep the task visible on failure; the user can retry.
@@ -297,17 +313,18 @@ export default function WinsScreen() {
             .finally(() => {
                 setDeleting(false);
             });
-    };
+    }, [deletingLog, setDeleting, setDeleteModalVisible, setDeletingLog, setToast, restoreTreasure, fetchTreasureGroups, emitTaskDataChanged]);
 
     // Jump the logbook to the selected date. Does NOT filter — the whole
     // logbook stays scrollable so the user can continue browsing nearby days.
-    const handleSelectDate = (date: string) => {
+    const handleSelectDate = useCallback((date: string) => {
+        triggerHaptic.light(); // Date selection
         setSelectedDate(date);
         const y = dateOffsets.current[date];
         if (y != null) {
             scrollRef.current?.scrollTo({ y, animated: true });
         }
-    };
+    }, []); // scrollRef and dateOffsets are refs, stable
 
     // Pull-to-refresh: refetch treasures, guarding against duplicate runs.
     const handleRefresh = useCallback(() => {

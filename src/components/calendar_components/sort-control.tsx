@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, Modal } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { HomeSortCriteria } from '@/dp_operations/home/tasks';
+import { HomeSortCriteria } from '@/features/tasks/tasks.types';
 
 interface SortControlProps {
     criteria: HomeSortCriteria;

@@ -1,5 +1,6 @@
 import { supabase } from '../../lib/supabase';
-import { HabitData } from '@/components/index_components/habit-card';
+import HabitCard from '@/components/index_components/habit-card';
+import type { HabitData } from '@/features/habits/habits.types';
 
 /**
  * Raw shape of a row from the `habits` table (joined with its category).

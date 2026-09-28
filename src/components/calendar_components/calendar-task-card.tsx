@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, memo } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import TaskActions from '@/components/ui/task-actions';
-import { CalendarFilterCriteria } from '@/dp_operations/calendar/tasks';
-import { HomeTask } from '@/dp_operations/home/tasks';
+import { CalendarFilterCriteria } from '@/features/tasks/calendar';
+import { HomeTask } from '@/features/tasks/tasks.types';
 
 // Priority badge colors — match the Unti-Unti priority palette.
 const PRIORITY_STYLES: Record<HomeTask['priority'], { bg: string; label: string }> = {
@@ -117,12 +117,27 @@ function bgForCriteria(task: HomeTask, criteria: CalendarFilterCriteria): string
     }
 }
 
+// Helper function to compare tasks for memoization
+function tasksEqual(prevTask: HomeTask, nextTask: HomeTask): boolean {
+    return (
+        prevTask.id === nextTask.id &&
+        prevTask.title === nextTask.title &&
+        prevTask.completed === nextTask.completed &&
+        prevTask.deadline === nextTask.deadline &&
+        prevTask.deadlineTime === nextTask.deadlineTime &&
+        prevTask.iconName === nextTask.iconName &&
+        prevTask.categoryName === nextTask.categoryName &&
+        prevTask.createdAt === nextTask.createdAt &&
+        prevTask.priority === nextTask.priority
+    );
+}
+
 // A task card in the date-based calendar queue.
 //
 // Normal mode: two sections — the top row completes the task, the bottom bar
 // expands to reveal details. Edit mode: the whole card is unified and tapping it
 // reveals Edit / Delete actions (matching the Wins tab interaction).
-export default function CalendarTaskCard({
+export default memo(function CalendarTaskCard({
     task,
     filterCriteria,
     queuePosition,
@@ -226,53 +241,63 @@ export default function CalendarTaskCard({
             {/* Expanded details */}
             {expanded && (
                 <View className="px-4 pt-4 pb-5 bg-cardBg border-t border-deepBrown/10 rounded-b-2xl">
-    {/* Description Section */}
-    <View className="mb-4">
-        <Text className="text-xs font-fredoka-semibold text-mutedBrown uppercase tracking-wider mb-1">
-            Description
-        </Text>
-        <Text 
-            className={`text-sm font-fredoka ${
-                task.description ? 'text-deepBrown' : 'text-mutedBrown/70 italic'
-            } leading-relaxed`}
-            style={{ includeFontPadding: false }}
-        >
-            {task.description || 'No description provided.'}
-        </Text>
-    </View>
+                    {/* Description Section */}
+                    <View className="mb-4">
+                        <Text className="text-xs font-fredoka-semibold text-mutedBrown uppercase tracking-wider mb-1">
+                            Description
+                        </Text>
+                        <Text
+                            className={`text-sm font-fredoka ${
+                                task.description ? 'text-deepBrown' : 'text-mutedBrown/70 italic'
+                            } leading-relaxed`}
+                            style={{ includeFontPadding: false }}
+                        >
+                            {task.description || 'No description provided.'}
+                        </Text>
+                    </View>
 
-    {/* Details Grid Container */}
-    <View className="bg-habitCard/60 rounded-xl p-3.5 gap-y-3 border border-white/60">
-        {/* Status */}
-        <DetailRow
-            label="Status"
-            value={task.completed ? 'Completed' : 'Pending'}
-        />
+                    {/* Details Grid Container */}
+                    <View className="bg-habitCard/60 rounded-xl p-3.5 gap-y-3 border border-white/60">
+                        {/* Status */}
+                        <DetailRow
+                            label="Status"
+                            value={task.completed ? 'Completed' : 'Pending'}
+                        />
 
-        {/* Category */}
-        <DetailRow
-            label="Category"
-            value={task.categoryName ?? 'None'}
-        />
+                        {/* Category */}
+                        <DetailRow
+                            label="Category"
+                            value={task.categoryName ?? 'None'}
+                        />
 
-        {/* Deadline */}
-        <DetailRow
-            label="Deadline"
-            value={task.deadline ? formatDeadline(task) : 'None'}
-        />
+                        {/* Deadline */}
+                        <DetailRow
+                            label="Deadline"
+                            value={task.deadline ? formatDeadline(task) : 'None'}
+                        />
 
-        {/* Priority */}
-        <DetailRow
-            label="Priority"
-            value={PRIORITY_STYLES[task.priority].label}
-            accent={PRIORITY_STYLES[task.priority].bg}
-        />
-    </View>
-</View>
+                        {/* Priority */}
+                        <DetailRow
+                            label="Priority"
+                            value={PRIORITY_STYLES[task.priority].label}
+                            accent={PRIORITY_STYLES[task.priority].bg}
+                        />
+                    </View>
+                </View>
             )}
         </View>
     );
-}
+}, (prevProps, nextProps) => {
+    return (
+        prevProps.filterCriteria === nextProps.filterCriteria &&
+        prevProps.queuePosition === nextProps.queuePosition &&
+        prevProps.editMode === nextProps.editMode &&
+        prevProps.onToggle === nextProps.onToggle &&
+        prevProps.onEdit === nextProps.onEdit &&
+        prevProps.onDelete === nextProps.onDelete &&
+        tasksEqual(prevProps.task, nextProps.task)
+    );
+});
 
 // A single label/value row in the task-details section.
 function DetailRow({

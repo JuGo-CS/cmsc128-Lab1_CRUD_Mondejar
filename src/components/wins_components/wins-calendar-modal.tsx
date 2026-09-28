@@ -1,6 +1,7 @@
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, Modal, ScrollView, Animated } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { triggerHaptic } from '@/utils/haptics';
 
 interface WinsCalendarModalProps {
     visible: boolean;
@@ -99,6 +100,15 @@ export default function WinsCalendarModal({
     onSelectDate,
     selectedDate,
 }: WinsCalendarModalProps) {
+    // Haptic feedback for modal open and close
+    useEffect(() => {
+        if (visible) {
+            triggerHaptic.medium(); // opening
+        } else {
+            triggerHaptic.medium(); // closing
+        }
+    }, [visible]);
+
     const now = new Date();
     const currentYear = now.getFullYear();
     const currentMonth = now.getMonth();

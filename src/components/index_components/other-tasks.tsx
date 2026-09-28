@@ -1,4 +1,4 @@
-import { HomeSortCriteria } from "@/dp_operations/home/tasks";
+import { HomeSortCriteria } from "@/features/tasks/tasks.types";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useEffect, useState } from "react";
 import { Modal, Text, TouchableOpacity, View } from "react-native";

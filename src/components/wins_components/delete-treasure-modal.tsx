@@ -1,7 +1,8 @@
-import React from 'react';
+import { useEffect } from 'react';
 import { View, Text, TouchableOpacity, Modal } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { TreasureLog } from '@/dp_operations/wins/treasures';
+import { TreasureLog } from '@/features/treasures/treasures.types';
+import { triggerHaptic } from '@/utils/haptics';
 
 interface DeleteTreasureModalProps {
     visible: boolean;
@@ -21,12 +22,21 @@ export default function DeleteTreasureModal({
     onConfirmDelete,
     deleting,
 }: DeleteTreasureModalProps) {
+    // Haptic feedback for modal open and close
+    useEffect(() => {
+        if (visible) {
+            triggerHaptic.medium(); // opening
+        } else {
+            triggerHaptic.medium(); // closing
+        }
+    }, [visible]);
+
     return (
-        <Modal 
-            visible={visible} 
-            transparent 
+        <Modal
+            visible={visible}
+            transparent
             statusBarTranslucent
-            animationType="fade" 
+            animationType="fade"
             onRequestClose={onClose}
         >
             {/* Dimmed backdrop — guides focus to the dialog */}
