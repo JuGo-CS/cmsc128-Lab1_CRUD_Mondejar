@@ -73,11 +73,11 @@ export default function EditTreasureModal({
     onConfirm,
     saving,
 }: EditTreasureModalProps) {
-    const [status, setStatus] = useState<'completed' | 'pending'>('completed');
-    const [title, setTitle] = useState('');
-    const [description, setDescription] = useState('');
-    const [catId, setCatId] = useState<string | null>(null);
-    const [deadline, setDeadline] = useState<string | null>(null);
+    const [status, setStatus] = useState<'completed' | 'pending'>(() => log?.status ?? 'completed');
+    const [title, setTitle] = useState(() => log?.title ?? '');
+    const [description, setDescription] = useState(() => log?.description ?? '');
+    const [catId, setCatId] = useState<string | null>(() => log?.catId ?? null);
+    const [deadline, setDeadline] = useState<string | null>(() => log?.deadline ?? null);
     const [deadlinePickerVisible, setDeadlinePickerVisible] = useState(false);
     const [confirming, setConfirming] = useState(false);
 
@@ -86,31 +86,6 @@ export default function EditTreasureModal({
     const [descriptionError, setDescriptionError] = useState<string | null>(null);
     const [deadlineError, setDeadlineError] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
-
-    // Reset the form whenever a new task is opened, loading the task's actual
-    // database values (status, deadline, etc.) instead of incorrect defaults.
-    useEffect(() => {
-        if (log) {
-            setStatus(log.status);
-            setTitle(log.title);
-            setDescription(log.description ?? '');
-            setCatId(log.catId);
-            setDeadline(log.deadline);
-            setConfirming(false);
-            // Reset errors
-            setTitleError(null);
-            setDescriptionError(null);
-            setDeadlineError(null);
-            setError(null);
-        }
-    }, [log]);
-
-    // Reset the confirmation step when the modal closes.
-    useEffect(() => {
-        if (!visible) {
-            setConfirming(false);
-        }
-    }, [visible]);
 
     // Haptic feedback for modal open and close
     useEffect(() => {
@@ -202,7 +177,7 @@ export default function EditTreasureModal({
                 behavior={Platform.OS === 'ios' ? 'padding' : undefined}
                 className="flex-1 justify-end"
             >
-                <View className="flex-1 justify-end bg-black/60">
+                <View key={`${visible}-${log?.id ?? ''}`} className="flex-1 justify-end bg-black/60">
                     <View
                         className="bg-cozyBg rounded-t-3xl p-5 pb-8 max-h-[85%]"
                         style={{
@@ -355,8 +330,8 @@ export default function EditTreasureModal({
                                 />
                                 {descriptionError && (
                                     <Text className="text-sm font-fredoka text-[#C0392B] mb-2">
-                                        {descriptionError}
-                                    </Text>
+                                         {descriptionError}
+                                     </Text>
                                 )}
 
                                 {/* Category */}
@@ -416,9 +391,9 @@ export default function EditTreasureModal({
                                     )}
                                 </TouchableOpacity>
                                 {deadlineError && (
-                                    <Text className="text-sm font-fredoka text-[#C0392B] mb-2">
-                                        {deadlineError}
-                                    </Text>
+                                     <Text className="text-sm font-fredoka text-[#C0392B] mb-2">
+                                         {deadlineError}
+                                     </Text>
                                 )}
 
                                 {/* Actions */}
@@ -429,9 +404,7 @@ export default function EditTreasureModal({
                                         disabled={saving}
                                         className="flex-1 py-3 rounded-xl items-center mr-2 bg-cardBg"
                                     >
-                                        <Text className="font-fredoka-bold text-deepBrown">
-                                            Cancel
-                                        </Text>
+                                        <Text className="font-fredoka-bold text-deepBrown">Cancel</Text>
                                     </TouchableOpacity>
                                     <TouchableOpacity
                                         onPress={handleSavePress}
