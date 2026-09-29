@@ -185,7 +185,6 @@ export default function OtherTasks({
   // Show a limited number of tasks in the stacked preview.
   const PREVIEW_COUNT = 3;
   const visibleTasks = expanded ? tasks : tasks.slice(0, PREVIEW_COUNT);
-  const hasMore = tasks.length > PREVIEW_COUNT;
 
   // Empty state — no other tasks remaining.
   if (tasks.length === 0) {
@@ -324,7 +323,7 @@ function DraggableTaskList({
 
   // Whether a drag is currently in progress. Used to avoid clobbering the
   // in-progress drag when the parent refetches after a task change.
-  const [dragging, setDragging] = useState(false);
+  const [dragging] = useState(false);
 
   // Keep the local order in sync when the tasks list changes. The parent
   // refetches from the shared task-change event, so a new task (Add) or a

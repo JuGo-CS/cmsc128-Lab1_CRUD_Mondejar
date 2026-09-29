@@ -12,6 +12,8 @@
       "bundleIdentifier": "com.ju_go.untiunti"
     },
     "android": {
+      "userInterfaceStyle": "automatic",
+      "softwareKeyboardLayoutMode": "pan",
       "package": "com.ju_go.untiunti",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",

@@ -61,7 +61,7 @@ export default function DeleteTreasureModal({
                         ellipsizeMode="tail"
                         className="font-fredoka-semibold text-[16px] text-[#2C221E] text-center mb-[32px]"
                     >
-                        "{log?.title}"
+                        {log?.title}
                     </Text>
 
                     {/* Body text */}

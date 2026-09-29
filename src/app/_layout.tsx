@@ -49,6 +49,7 @@ function TabLabel({ label, focused }: { label: string; focused: boolean }) {
 }
 
 export default function AppLayout() {
+
   const [fontsLoaded] = useFonts({
     Fredoka_400Regular,
     Fredoka_500Medium,
@@ -58,6 +59,16 @@ export default function AppLayout() {
 
   const [addModalVisible, setAddModalVisible] = useState(false);
   const [toast, setToast] = useState<ToastData | null>(null);
+
+  // AUTO-COLLAPSE ANDROID NAVIGATION BAR
+  useEffect(() => {
+    if (Platform.OS === "android") {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const NavigationBar = require("expo-navigation-bar");
+      NavigationBar.setBehaviorAsync?.("overlay-swipe");
+      NavigationBar.setVisibilityAsync?.("hidden");
+    }
+  }, []);
 
   useEffect(() => {
     if (fontsLoaded) {
