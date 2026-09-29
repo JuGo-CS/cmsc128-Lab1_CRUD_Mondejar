@@ -32,7 +32,7 @@ export default function HeroCard({ task, onComplete, empty }: HeroCardProps) {
                         <Ionicons name="leaf" size={22} color="#FFFFFF" />
                     </View>
                     <Text className="flex-1 text-lg font-fredoka-medium text-white">
-                        You've done enough for today. Take a little breather~
+                        You&apos;ve done enough for today. Take a little breather~
                     </Text>
                 </View>
             </View>
