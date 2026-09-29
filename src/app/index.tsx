@@ -438,6 +438,24 @@ export default function HomeScreen() {
         setEditModalVisible(true);
     }, []);
 
+    // Undo a task edit: restore the pre-edit snapshot and refresh the UI.
+    const undoTaskEdit = useCallback((snapshot: TaskSnapshot) => {
+        restoreTaskSnapshot(snapshot)
+            .then(() => fetchPendingTaskQueue())
+            .then((fetchedTasks) => {
+                const nextQueue = fetchedTasks as HomeTask[];
+                setTaskQueue(nextQueue);
+                return syncPositions(nextQueue, sortCriteria).then(() => {
+                    setToast({ message: 'Task restored.' });
+                    emitTaskDataChanged();
+                });
+            })
+            .catch((err) => {
+                console.error('Failed to undo task edit:', err);
+                setToast({ message: 'Could not undo. Please try again.' });
+            });
+    }, [syncPositions, emitTaskDataChanged]);
+
     // Confirm the edited task, then refresh the queue.
     const handleConfirmEdit = useCallback((payload: {
         status: 'completed' | 'pending';
@@ -474,24 +492,6 @@ export default function HomeScreen() {
                 setSaving(false);
             });
     }, [refreshTasks, emitTaskDataChanged]);
-
-    // Undo a task edit: restore the pre-edit snapshot and refresh the UI.
-    const undoTaskEdit = useCallback((snapshot: TaskSnapshot) => {
-        restoreTaskSnapshot(snapshot)
-            .then(() => fetchPendingTaskQueue())
-            .then((fetchedTasks) => {
-                const nextQueue = fetchedTasks as HomeTask[];
-                setTaskQueue(nextQueue);
-                return syncPositions(nextQueue, sortCriteria).then(() => {
-                    setToast({ message: 'Task restored.' });
-                    emitTaskDataChanged();
-                });
-            })
-            .catch((err) => {
-                console.error('Failed to undo task edit:', err);
-                setToast({ message: 'Could not undo. Please try again.' });
-            });
-    }, [syncPositions, emitTaskDataChanged]);
 
     // Open the delete confirmation for a task (edit mode → tap body → Delete).
     const handleDeleteTask = useCallback((task: TaskItemData) => {
