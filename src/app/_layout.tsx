@@ -1,74 +1,23 @@
-import "../../global.css";
-import { Tabs } from "expo-router";
-import { View, TouchableOpacity, Text, Platform, ActivityIndicator } from "react-native";
-import { GestureHandlerRootView } from "react-native-gesture-handler";
-import Ionicons from "@expo/vector-icons/Ionicons";
+import { AuthProvider, useAuth } from "@/context/AuthContext";
 import {
-  useFonts,
   Fredoka_400Regular,
   Fredoka_500Medium,
   Fredoka_600SemiBold,
   Fredoka_700Bold,
+  useFonts,
 } from "@expo-google-fonts/fredoka";
+import { Slot, useRouter, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
-import { useEffect, useState } from "react";
-import AddModal from "@/components/add-modal";
-import Toast, { ToastData } from "@/components/ui/toast";
-import { emitTaskDataChanged } from "@/lib/data-events";
-import ErrorBoundary from "@/components/error-boundary";
-import { AuthProvider } from '@/context/AuthContext';
-import { useAuth } from '@/context/AuthContext';
-import { useSegments, useRouter } from 'expo-router';
+import { useEffect } from "react";
+import { ActivityIndicator, View } from "react-native";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
+import "../../global.css";
 
-function FloatingAddButton({ onPress }: { onPress?: () => void }) {
-  return (
-    <View
-      pointerEvents="box-none"
-      className="absolute left-0 right-0 items-center z-20 "
-      style={{ bottom: Platform.OS === "ios" ? 40 : 32 }}
-    >
-      <View className="w-[80px] h-[80px] rounded-full bg-tabBarBg items-center justify-center">
-        <TouchableOpacity
-          onPress={onPress}
-          activeOpacity={0.85}
-          className="w-[65px] h-[65px] rounded-full items-center justify-center bg-fabPinkBg shadow-sm"
-          style={{ elevation: 8 }}
-        >
-          <Ionicons name="add" size={38} color="#FFFFFF" />
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
-}
-
-function TabLabel({ label, focused }: { label: string; focused: boolean }) {
-  return (
-    <Text
-      className={`${focused ? "font-fredoka-semibold" : "font-fredoka"} text-deepBrown text-[15px] mt-0.5`}
-    >
-      {label}
-    </Text>
-  );
-}
-
-// Inner component that uses auth context and handles protected routing
-function MainLayout() {
-  const { session, user, isLoading } = useAuth();
+// Inner navigator that guards routes based on auth state.
+function RootNavigator() {
+  const { session, isLoading } = useAuth();
   const segments = useSegments();
   const router = useRouter();
-
-  const [addModalVisible, setAddModalVisible] = useState(false);
-  const [toast, setToast] = useState<ToastData | null>(null);
-
-  // AUTO-COLLAPSE ANDROID NAVIGATION BAR
-  useEffect(() => {
-    if (Platform.OS === "android") {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const NavigationBar = require("expo-navigation-bar");
-      NavigationBar.setBehaviorAsync?.("overlay-swipe");
-      NavigationBar.setVisibilityAsync?.("hidden");
-    }
-  }, []);
 
   // Protect routes based on auth state
   useEffect(() => {
@@ -77,15 +26,15 @@ function MainLayout() {
       return;
     }
 
-    const isAuthRoute = segments[0] === '(auth)';
+    const isAuthRoute = segments[0] === "(auth)";
     const isAuthenticated = !!session;
 
     if (!isAuthenticated && !isAuthRoute) {
       // User is not auth and trying to access a protected route -> redirect to sign-in
-      router.replace('/(auth)/sign-in');
+      router.replace("/(auth)/sign-in");
     } else if (isAuthenticated && isAuthRoute) {
       // User is auth and trying to access an auth route -> redirect to home
-      router.replace('/');
+      router.replace("/");
     }
   }, [isLoading, session, segments, router]);
 
@@ -98,135 +47,11 @@ function MainLayout() {
     );
   }
 
-  return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <View className="flex-1 mx-1">
-        <ErrorBoundary>
-          <Tabs
-            screenOptions={{
-              headerShown: false,
-              tabBarActiveTintColor: "#3D2E2B",
-              tabBarInactiveTintColor: "#3D2E2B",
-              tabBarStyle: {
-                backgroundColor: "#F7F2EB",
-                borderTopColor: "#E6DDD4",
-                borderTopWidth: 1,
-                height: Platform.OS === "ios" ? 92 : 82,
-                paddingBottom: Platform.OS === "ios" ? 24 : 12,
-                paddingTop: 8,
-              }
-            }}
-          >
-            <Tabs.Screen
-              name="index"
-              options={{
-                title: "Home",
-                tabBarLabel: ({ focused }) => (
-                  <TabLabel label="Home" focused={focused} />
-                ),
-                tabBarIcon: ({ focused }) => (
-                  <Ionicons
-                    name={focused ? "home" : "home-outline"}
-                    size={26}
-                    color="#3D2E2B"
-                  />
-                ),
-              }}
-            />
-
-            <Tabs.Screen
-              name="wins"
-              options={{
-                title: "Wins",
-                tabBarLabel: ({ focused }) => (
-                  <TabLabel label="Wins" focused={focused} />
-                ),
-                tabBarIcon: ({ focused }) => (
-                  <Ionicons
-                    name={focused ? "star" : "star-outline"}
-                    size={26}
-                    color="#3D2E2B"
-                  />
-                ),
-              }}
-            />
-
-            <Tabs.Screen
-              name="add-modal"
-              options={{
-                title: "",
-                tabBarButton: () => <View className="w-[74px]" />, // spacer
-              }}
-            />
-
-            <Tabs.Screen
-              name="calendar"
-              options={{
-                title: "Lists",
-                tabBarLabel: ({ focused }) => (
-                  <TabLabel label="Lists" focused={focused} />
-                ),
-                tabBarIcon: ({ focused }) => (
-                  <Ionicons
-                    name={focused ? "clipboard" : "clipboard-outline"}
-                    size={26}
-                    color="#3D2E2B"
-                  />
-                ),
-              }}
-            />
-
-            <Tabs.Screen
-              name="profile"
-              options={{
-                title: "Profile",
-                tabBarLabel: ({ focused }) => (
-                  <TabLabel label="Profile" focused={focused} />
-                ),
-                tabBarIcon: ({ focused }) => (
-                  <Ionicons
-                    name={focused ? "person" : "person-outline"}
-                    size={26}
-                    color="#3D2E2B"
-                  />
-                ),
-              }}
-            />
-            <Tabs.Screen
-              name="(auth)"
-              options={{
-                href: null,
-              }}
-            />
-          </Tabs>
-        </ErrorBoundary>
-
-        <FloatingAddButton onPress={() => setAddModalVisible(true)} />
-
-        <AddModal
-          visible={addModalVisible}
-          onClose={() => setAddModalVisible(false)}
-          onSaved={() => {
-            setAddModalVisible(false);
-          }}
-          onTaskSaved={() => {
-            setToast({ message: "Task added successfully!" });
-            emitTaskDataChanged();
-          }}
-          onHabitSaved={() => {
-            setToast({ message: "Habit added successfully!" });
-          }}
-        />
-
-        {/* Success toast — shown only after a task save succeeds. */}
-        <Toast toast={toast} onDismiss={() => setToast(null)} />
-      </View>
-    </GestureHandlerRootView>
-  );
+  return <Slot />;
 }
 
-// Outer component that provides auth context and handles font loading and splash screen
-export default function AppLayout() {
+// Root layout: loads fonts, provides auth context, and renders the matched route.
+export default function RootLayout() {
   const [fontsLoaded] = useFonts({
     Fredoka_400Regular,
     Fredoka_500Medium,
@@ -249,8 +74,10 @@ export default function AppLayout() {
   }
 
   return (
-    <AuthProvider>
-      <MainLayout />
-    </AuthProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <AuthProvider>
+        <RootNavigator />
+      </AuthProvider>
+    </GestureHandlerRootView>
   );
 }
