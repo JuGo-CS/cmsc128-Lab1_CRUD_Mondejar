@@ -14,7 +14,7 @@ export async function updateProfile(userId: string, updates: { username?: string
   // 1. If updating display_name, update Supabase Auth User Metadata too
   if (updates.display_name) {
     await supabase.auth.updateUser({
-      data: { full_name: updates.display_name.trim() },
+      data: { display_name: updates.display_name.trim() },
     });
   }
 

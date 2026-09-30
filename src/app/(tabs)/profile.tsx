@@ -5,7 +5,7 @@ import { useFonts, Fredoka_400Regular, Fredoka_500Medium, Fredoka_600SemiBold, F
 import { User } from '@supabase/supabase-js';
 import Toast, { ToastData } from '@/components/ui/toast';
 import ConfirmModal from '@/components/ui/confirm-modal';
-import { updateProfile } from '@/dp_operations/profile/profile';
+import { updateProfile, getProfile } from '@/dp_operations/profile/profile';
 
 export default function ProfileScreen() {
     const [fontsLoaded] = useFonts({
@@ -35,9 +35,8 @@ export default function ProfileScreen() {
                 if (data?.user) {
                     setUser(data.user);
                     // Check display_name first, then fallback to full_name
-                    const userDisplayName = 
-                        data.user.user_metadata?.display_name || 
-                        data.user.user_metadata?.full_name || 
+                    const userDisplayName =
+                        data.user.user_metadata?.display_name ||
                         '';
                     setDisplayNameInput(userDisplayName);
                 }
@@ -47,7 +46,70 @@ export default function ProfileScreen() {
         };
 
         fetchUser();
+
+        // Listen for auth state changes to keep user data fresh
+        const { data: authListener } = supabase.auth.onAuthStateChange(
+            (_event, session) => {
+                if (session?.user) {
+                    setUser(session.user);
+                    // Check display_name first, then fallback to full_name
+                    const userDisplayName =
+                        session.user.user_metadata?.display_name ||
+                        '';
+                    setDisplayNameInput(userDisplayName);
+                } else {
+                    setUser(null);
+                    setDisplayNameInput('');
+                }
+            }
+        );
+
+        return () => {
+            authListener.subscription.unsubscribe();
+        };
     }, []);
+
+    const [userName, setUserName] = useState<string>('');
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchUserName = async () => {
+            try {
+                const { data: { user } } = await supabase.auth.getUser();
+                if (user) {
+                    // Try fetching display_name or username from profiles table
+                    const { data } = await getProfile(user.id);
+                    const name =
+                        data?.display_name ||
+                        data?.username ||
+                        user.user_metadata?.full_name ||
+                        user.email?.split('@')[0] ||
+                        'Friend';
+
+                    setUserName(name);
+                }
+            } catch (err) {
+                console.error('Error loading username on home:', err);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchUserName();
+
+        // Listen for realtime updates when profile is updated in profile screen
+        const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+            if (session?.user) {
+                const name = session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'Friend';
+                setUserName(name);
+            }
+        });
+
+        return () => {
+            authListener.subscription.unsubscribe();
+        };
+    }, []);
+
     if (!fontsLoaded || !user) {
         return (
             <View className="flex-1 bg-cozyBg justify-center items-center">
@@ -123,6 +185,7 @@ export default function ProfileScreen() {
         }
     };
 
+
     return (
         <View className="flex-1 bg-cozyBg">
             <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 56, paddingBottom: 100 }}>
@@ -136,7 +199,7 @@ export default function ProfileScreen() {
                         Logged In As
                     </Text>
                     <Text className="text-xl font-fredoka-bold text-deepBrown">
-                        {user.user_metadata?.display_name || user.user_metadata?.full_name || 'No Name Set'}
+                        {loading ? '...' : `${userName}!`}
                     </Text>
                     <Text className="text-sm font-fredoka text-mutedBrown mt-0.5">
                         {user.email}
@@ -153,8 +216,8 @@ export default function ProfileScreen() {
                         className="border border-mutedBrown/30 rounded-xl px-3 py-2.5 mb-3 bg-cozyBg font-fredoka text-deepBrown"
                         placeholder="Enter display name"
                         placeholderTextColor="#7D6E6B"
-                        value={displayNameInput}
-                        onChangeText={setDisplayNameInput}
+                        value={userName}
+                        onChangeText={setUserName}
                     />
 
                     <TouchableOpacity
