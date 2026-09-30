@@ -143,7 +143,7 @@ const LoginForm: React.FC = () => {
               Welcome Back
             </Text>
             <Text className="font-fredoka text-base text-mutedBrown mt-1.5 leading-6">
-              Log in to continue your progress 🌱
+              Log in to continue your progress 
             </Text>
           </View>
 
