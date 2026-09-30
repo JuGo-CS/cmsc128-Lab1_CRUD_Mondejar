@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, TextInput, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, TextInput, ScrollView, ActivityIndicator, Pressable } from 'react-native';
 import { supabase } from '@/lib/supabase';
 import { useFonts, Fredoka_400Regular, Fredoka_500Medium, Fredoka_600SemiBold, Fredoka_700Bold } from '@expo-google-fonts/fredoka';
 import { User } from '@supabase/supabase-js';
 import Toast, { ToastData } from '@/components/ui/toast';
 import ConfirmModal from '@/components/ui/confirm-modal';
-import { updateProfile, getProfile } from '@/dp_operations/profile/profile';
+import { updateProfile } from '@/dp_operations/profile/profile';
+import { getProfile } from '@/dp_operations/profile/profile';
 
 export default function ProfileScreen() {
     const [fontsLoaded] = useFonts({
@@ -19,11 +20,13 @@ export default function ProfileScreen() {
     const [displayNameInput, setDisplayNameInput] = useState('');
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
-    
+    const [showNewPassword, setShowNewPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
     // Toast & Modal States
     const [toast, setToast] = useState<ToastData | null>(null);
     const [showSignOutModal, setShowSignOutModal] = useState(false);
-    
+
     const [loadingName, setLoadingName] = useState(false);
     const [loadingPassword, setLoadingPassword] = useState(false);
     const [loadingSignOut, setLoadingSignOut] = useState(false);
@@ -138,6 +141,11 @@ export default function ProfileScreen() {
             return;
         }
 
+        if (!user) {
+            setToast({ message: 'User not found. Please try again.' });
+            return;
+        }
+
         setLoadingName(true);
         try {
             const trimmedName = displayNameInput.trim();
@@ -147,7 +155,7 @@ export default function ProfileScreen() {
             if (error) throw error;
 
             setToast({ message: 'Display name updated successfully!' });
-            
+
             // Keep local user metadata state in sync
             setUser(prev => prev ? {
                 ...prev,
@@ -185,6 +193,17 @@ export default function ProfileScreen() {
         }
     };
 
+    // Loading state while fonts or user data is loading
+    if (!fontsLoaded || !user) {
+        return (
+            <View className="flex-1 bg-cozyBg justify-center items-center">
+                <ActivityIndicator size="large" color="#2C221E" />
+                <Text className="mt-3 font-fredoka-medium text-deepBrown">
+                    Loading Profile...
+                </Text>
+            </View>
+        );
+    }
 
     return (
         <View className="flex-1 bg-cozyBg">
@@ -202,7 +221,7 @@ export default function ProfileScreen() {
                         {loading ? '...' : `${userName}!`}
                     </Text>
                     <Text className="text-sm font-fredoka text-mutedBrown mt-0.5">
-                        {user.email}
+                        {user?.email ?? ''}
                     </Text>
                 </View>
 
@@ -245,8 +264,18 @@ export default function ProfileScreen() {
                         placeholderTextColor="#7D6E6B"
                         value={newPassword}
                         onChangeText={setNewPassword}
-                        secureTextEntry
+                        secureTextEntry={!showNewPassword}
                     />
+
+                    <Pressable
+                        onPress={() => setShowNewPassword(!showNewPassword)}
+                        hitSlop={10}
+                        className="text-right mb-2"
+                    >
+                        <Text className="font-fredoka-semibold text-xs text-focusHero">
+                            {showNewPassword ? "Hide" : "Show"}
+                        </Text>
+                    </Pressable>
 
                     <TextInput
                         className="border border-mutedBrown/30 rounded-xl px-3 py-2.5 mb-3 bg-cozyBg font-fredoka text-deepBrown"
@@ -254,8 +283,18 @@ export default function ProfileScreen() {
                         placeholderTextColor="#7D6E6B"
                         value={confirmPassword}
                         onChangeText={setConfirmPassword}
-                        secureTextEntry
+                        secureTextEntry={!showConfirmPassword}
                     />
+
+                    <Pressable
+                        onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                        hitSlop={10}
+                        className="text-right mb-2"
+                    >
+                        <Text className="font-fredoka-semibold text-xs text-focusHero">
+                            {showConfirmPassword ? "Hide" : "Show"}
+                        </Text>
+                    </Pressable>
 
                     <TouchableOpacity
                         onPress={handleUpdatePassword}
