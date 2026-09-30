@@ -30,90 +30,40 @@ export default function ProfileScreen() {
     const [loadingName, setLoadingName] = useState(false);
     const [loadingPassword, setLoadingPassword] = useState(false);
     const [loadingSignOut, setLoadingSignOut] = useState(false);
-
-    useEffect(() => {
-        const fetchUser = async () => {
-            try {
-                const { data } = await supabase.auth.getUser();
-                if (data?.user) {
-                    setUser(data.user);
-                    // Check display_name first, then fallback to full_name
-                    const userDisplayName =
-                        data.user.user_metadata?.display_name ||
-                        '';
-                    setDisplayNameInput(userDisplayName);
-                }
-            } catch (error) {
-                console.error('Error fetching user:', error);
-            }
-        };
-
-        fetchUser();
-
-        // Listen for auth state changes to keep user data fresh
-        const { data: authListener } = supabase.auth.onAuthStateChange(
-            (_event, session) => {
-                if (session?.user) {
-                    setUser(session.user);
-                    // Check display_name first, then fallback to full_name
-                    const userDisplayName =
-                        session.user.user_metadata?.display_name ||
-                        '';
-                    setDisplayNameInput(userDisplayName);
-                } else {
-                    setUser(null);
-                    setDisplayNameInput('');
-                }
-            }
-        );
-
-        return () => {
-            authListener.subscription.unsubscribe();
-        };
-    }, []);
-
+    
     const [userName, setUserName] = useState<string>('');
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const fetchUserName = async () => {
+        const fetchUser = async () => {
             try {
                 const { data: { user } } = await supabase.auth.getUser();
                 if (user) {
-                    // Try fetching display_name or username from profiles table
+                    setUser(user);
+
+                    // Fetch real display name from database
                     const { data } = await getProfile(user.id);
                     const name =
                         data?.display_name ||
                         data?.username ||
                         user.user_metadata?.full_name ||
                         user.email?.split('@')[0] ||
-                        'Friend';
+                        '';
 
-                    setUserName(name);
+                    setUserName(name || 'Friend');
+                    setDisplayNameInput(name);
                 }
-            } catch (err) {
-                console.error('Error loading username on home:', err);
+            } catch (error) {
+                console.error('Error fetching user profile:', error);
             } finally {
                 setLoading(false);
             }
         };
 
-        fetchUserName();
-
-        // Listen for realtime updates when profile is updated in profile screen
-        const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
-            if (session?.user) {
-                const name = session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'Friend';
-                setUserName(name);
-            }
-        });
-
-        return () => {
-            authListener.subscription.unsubscribe();
-        };
+        fetchUser();
     }, []);
 
-    if (!fontsLoaded || !user) {
+    if (!fontsLoaded || loading || !user) {
         return (
             <View className="flex-1 bg-cozyBg justify-center items-center">
                 <ActivityIndicator size="large" color="#2C221E" />
@@ -157,6 +107,7 @@ export default function ProfileScreen() {
             setToast({ message: 'Display name updated successfully!' });
 
             // Keep local user metadata state in sync
+            setUserName(trimmedName);
             setUser(prev => prev ? {
                 ...prev,
                 user_metadata: { ...prev.user_metadata, display_name: trimmedName, full_name: trimmedName }
@@ -193,18 +144,6 @@ export default function ProfileScreen() {
         }
     };
 
-    // Loading state while fonts or user data is loading
-    if (!fontsLoaded || !user) {
-        return (
-            <View className="flex-1 bg-cozyBg justify-center items-center">
-                <ActivityIndicator size="large" color="#2C221E" />
-                <Text className="mt-3 font-fredoka-medium text-deepBrown">
-                    Loading Profile...
-                </Text>
-            </View>
-        );
-    }
-
     return (
         <View className="flex-1 bg-cozyBg">
             <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 56, paddingBottom: 100 }}>
@@ -235,8 +174,8 @@ export default function ProfileScreen() {
                         className="border border-mutedBrown/30 rounded-xl px-3 py-2.5 mb-3 bg-cozyBg font-fredoka text-deepBrown"
                         placeholder="Enter display name"
                         placeholderTextColor="#7D6E6B"
-                        value={userName}
-                        onChangeText={setUserName}
+                        value={displayNameInput}
+                        onChangeText={setDisplayNameInput}
                     />
 
                     <TouchableOpacity

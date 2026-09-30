@@ -573,43 +573,47 @@ export default function HomeScreen() {
     const [userName, setUserName] = useState<string>('');
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        const fetchUserName = async () => {
-            try {
-                const { data: { user } } = await supabase.auth.getUser();
-                if (user) {
-                    // Try fetching display_name or username from profiles table
-                    const { data } = await getProfile(user.id);
-                    const name =
-                        data?.display_name ||
-                        data?.username ||
-                        user.user_metadata?.full_name ||
-                        user.email?.split('@')[0] ||
-                        'Friend';
+    const fetchUserName = useCallback(async () => {
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                // Priority: Database profile -> Metadata -> Email prefix -> Fallback
+                const { data } = await getProfile(user.id);
+                const name =
+                    data?.display_name ||
+                    data?.username ||
+                    user.user_metadata?.display_name ||
+                    user.user_metadata?.full_name ||
+                    user.email?.split('@')[0] ||
+                    'Friend';
 
-                    setUserName(name);
-                }
-            } catch (err) {
-                console.error('Error loading username on home:', err);
-            } finally {
-                setLoading(false);
+                setUserName(name);
             }
-        };
+        } catch (err) {
+            console.error('Error loading username on home:', err);
+        } finally {
+            setLoading(false);
+        }
+    }, []);
 
-        fetchUserName();
+    // Re-fetch profile name whenever Home gains focus
+    useFocusEffect(
+        useCallback(() => {
+            fetchUserName();
+        }, [fetchUserName])
+    );
 
-        // Listen for realtime updates when profile is updated in profile screen
+    useEffect(() => {
         const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
             if (session?.user) {
-                const name = session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'Friend';
-                setUserName(name);
+                fetchUserName();
             }
         });
 
         return () => {
             authListener.subscription.unsubscribe();
         };
-    }, []);
+    }, [fetchUserName]);
 
     if (!fontsLoaded) {
         return null;
