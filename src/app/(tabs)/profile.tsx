@@ -34,7 +34,12 @@ export default function ProfileScreen() {
                 const { data } = await supabase.auth.getUser();
                 if (data?.user) {
                     setUser(data.user);
-                    setDisplayNameInput(data.user.user_metadata?.full_name || '');
+                    // Check display_name first, then fallback to full_name
+                    const userDisplayName = 
+                        data.user.user_metadata?.display_name || 
+                        data.user.user_metadata?.full_name || 
+                        '';
+                    setDisplayNameInput(userDisplayName);
                 }
             } catch (error) {
                 console.error('Error fetching user:', error);
@@ -43,7 +48,6 @@ export default function ProfileScreen() {
 
         fetchUser();
     }, []);
-
     if (!fontsLoaded || !user) {
         return (
             <View className="flex-1 bg-cozyBg justify-center items-center">
@@ -132,7 +136,7 @@ export default function ProfileScreen() {
                         Logged In As
                     </Text>
                     <Text className="text-xl font-fredoka-bold text-deepBrown">
-                        {user.user_metadata?.full_name || 'No Name Set'}
+                        {user.user_metadata?.display_name || user.user_metadata?.full_name || 'No Name Set'}
                     </Text>
                     <Text className="text-sm font-fredoka text-mutedBrown mt-0.5">
                         {user.email}
