@@ -28,6 +28,8 @@ import {
 import { fetchTodayHabits, logHabitCompletion, undoHabitCompletion } from '@/features/habits/habits.api';
 import { fetchCategories, updateTreasure, deleteTreasure, Category, TreasureLog } from '@/features/treasures/treasures.api';
 import { triggerHaptic } from '@/utils/haptics';
+import { supabase } from '@/lib/supabase';
+import { getProfile } from '@/dp_operations/profile/profile';
 
 
 // Map a HomeTask to the TreasureLog shape the Wins edit/delete modals expect.
@@ -568,6 +570,47 @@ export default function HomeScreen() {
             });
     }, [setHabits, setToast, undoHabit, logHabitCompletion, emitTaskDataChanged]);
 
+    const [userName, setUserName] = useState<string>('');
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchUserName = async () => {
+            try {
+                const { data: { user } } = await supabase.auth.getUser();
+                if (user) {
+                    // Try fetching display_name or username from profiles table
+                    const { data } = await getProfile(user.id);
+                    const name =
+                        data?.display_name ||
+                        data?.username ||
+                        user.user_metadata?.full_name ||
+                        user.email?.split('@')[0] ||
+                        'Friend';
+
+                    setUserName(name);
+                }
+            } catch (err) {
+                console.error('Error loading username on home:', err);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchUserName();
+
+        // Listen for realtime updates when profile is updated in profile screen
+        const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+            if (session?.user) {
+                const name = session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'Friend';
+                setUserName(name);
+            }
+        });
+
+        return () => {
+            authListener.subscription.unsubscribe();
+        };
+    }, []);
+
     if (!fontsLoaded) {
         return null;
     }
@@ -577,9 +620,9 @@ export default function HomeScreen() {
             {/* Header row with greeting and sun icon — fixed */}
             <View className="flex-row items-start justify-between">
                 <View className="flex-1 pr-4">
-                    <Text className="text-4xl font-fredoka-semibold font-bold text-deepBrown leading-tight">
+                    <Text className="text-4xl font-fredoka-semibold text-deepBrown leading-tight">
                         Maayung{'\n'}
-                        adlaw, Kenneth!
+                        adlaw, {loading ? '...' : `${userName}!`}
                     </Text>
                     {/* Horizontal line underneath the heading */}
                     <View className="h-[2px] bg-deepBrown mt-2" />

@@ -11,6 +11,14 @@ export async function getProfile(userId: string) {
 }
 
 export async function updateProfile(userId: string, updates: { username?: string; display_name?: string }) {
+  // 1. If updating display_name, update Supabase Auth User Metadata too
+  if (updates.display_name) {
+    await supabase.auth.updateUser({
+      data: { full_name: updates.display_name.trim() },
+    });
+  }
+
+  // 2. Update the custom profiles table
   const { data, error } = await supabase
     .from('profiles')
     .update({
@@ -21,3 +29,4 @@ export async function updateProfile(userId: string, updates: { username?: string
 
   return { data, error };
 }
+
